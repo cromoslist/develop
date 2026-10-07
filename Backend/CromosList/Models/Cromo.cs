@@ -27,5 +27,7 @@ public class Cromo
     public long AlbumId { get; set; }
     public Album Album { get; set; } = null!;
 
+    public string? Comentario { get; set; }
+
     public ICollection<UsuarioCromo> UsuariosCromo { get; set; } = new List<UsuarioCromo>();
 }

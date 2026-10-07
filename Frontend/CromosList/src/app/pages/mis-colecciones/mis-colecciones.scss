@@ -86,6 +86,11 @@
     gap: 8px;
   }
 
+  .eliminar-btn {
+    color: #c62828;
+    border-color: #c62828;
+  }
+
   &.completada {
     border-color: var(--app-green);
 
@@ -171,11 +176,6 @@
   color: var(--app-green);
 }
 
-@media (max-width: 650px) {
-  .page-container {
-    padding: 20px 12px;
-  }
-
 .empty-banner {
   max-width: 1100px;
   margin: 0 auto 24px;
@@ -213,8 +213,116 @@
   }
 }
 
-.colecciones-grid {
+.personalizadas-card {
+  max-width: 1100px;
+  margin: 32px auto 0;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  box-shadow: none !important;
+
+  mat-card-content {
+    padding: 20px 24px !important;
+  }
+}
+
+.personalizadas-titulo {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.personalizadas-descripcion {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--app-text-muted);
+}
+
+.personalizadas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.personalizada-item {
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  box-shadow: none !important;
+  background: var(--app-primary-soft);
+
+  mat-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 12px !important;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-primary);
+    text-align: center;
+  }
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.jugadores-item mat-card-content {
+  align-items: stretch;
+  text-align: left;
+}
+
+.jugadores-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  span {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-primary);
+  }
+}
+
+.jugador-field {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.jugador-add-btn {
+  justify-content: center;
+}
+
+.personalizado-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 16px 0 0;
+  color: #c62828;
+  font-size: 13px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 650px) {
+  .page-container {
+    padding: 20px 12px;
+  }
+
+  .colecciones-grid {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+
+  .personalizadas-grid {
+    grid-template-columns: 1fr;
   }
 }

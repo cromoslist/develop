@@ -84,7 +84,14 @@ if (app.Environment.IsDevelopment())
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT")))
+// En desarrollo se sirve el frontend con 'ng serve' (http://localhost:4200) y el
+// proxy '/api' apunta por HTTP al backend, asi que la redireccion a HTTPS
+// devolveria un 307 y romperia las llamadas.
+var desactivaRedireccionHttps =
+    app.Environment.IsDevelopment() ||
+    !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT"));
+
+if (!desactivaRedireccionHttps)
 {
     app.UseHttpsRedirection();
 }

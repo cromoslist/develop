@@ -1,19 +1,32 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+  ReactiveFormsModule
+} from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MATERIAL_IMPORTS } from '../../shared/material.imports';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatInputModule } from '@angular/material/input';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Observable, map, startWith } from 'rxjs';
+import { MATERIAL_IMPORTS } from '../../shared/material.imports';
+import { Album, AlbumEquipo, AlbumService, AlbumTipoCromo, AlbumCromo } from '../../services/album.service';
+import { Edicion, EdicionService } from '../../services/edicion.service';
+import { JugadorEquipo, JugadorService } from '../../services/jugador.service';
+import { CromoEditarComponent } from '../coleccion-detalle/cromo-editar';
 
 @Component({
   selector: 'app-cromos',
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatAutocompleteModule,
-    MatInputModule,
+    MatDialogModule,
+    MatTableModule,
+    MatTooltipModule,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './cromos.html',
@@ -23,17 +36,22 @@ export class AnadirCromoComponent implements OnInit {
 
   cromoForm!: FormGroup;
 
-  ediciones: any[] = [];
-  albumes: any[] = [];
-  equipos: any[] = [];
-  jugadores: any[] = [];
-  tiposCromo: any[] = [];
+  albumes: Album[] = [];
+  albumSeleccionado: Album | null = null;
+  tiposCromoAlbum: AlbumTipoCromo[] = [];
+  equiposAlbum: AlbumEquipo[] = [];
+  ediciones: Edicion[] = [];
+  jugadores: JugadorEquipo[] = [];
 
-  filteredEquipos$!: Observable<any[]>;
-  filteredJugadores$!: Observable<any[]>;
-  filteredTiposCromo$!: Observable<any[]>;
+  filteredEquipos$!: Observable<AlbumEquipo[]>;
+  filteredJugadores$!: Observable<JugadorEquipo[]>;
+
+  cromos: AlbumCromo[] = [];
+  columnas = ['numero', 'jugador', 'tipoCromo', 'edicion', 'acciones'];
+  mostrarTabla = false;
 
   cargando = false;
+  guardando = false;
   mensaje = '';
   error = '';
 
@@ -42,6 +60,10 @@ export class AnadirCromoComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private http: HttpClient,
+    private albumService: AlbumService,
+    private edicionService: EdicionService,
+    private jugadorService: JugadorService,
+    private dialog: MatDialog,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -52,46 +74,85 @@ export class AnadirCromoComponent implements OnInit {
 
   private crearFormulario(): void {
     this.cromoForm = this.fb.group({
-      numero: [
-        '',
-        Validators.required
-      ],
-      edicionId: [
+      albumId: [
         null,
         Validators.required
       ],
-      albumId: [
+      tipoCromoId: [
         null,
         Validators.required
       ],
       equipo: [
         null,
+        [Validators.required, this.seleccionValida]
+      ],
+      numero: [
+        '',
         Validators.required
       ],
       jugador: [
-        { value: null, disabled: true },
-        Validators.required
+        null,
+        [Validators.required, this.seleccionValida]
       ],
-      tipoCromo: [
+      edicionId: [
         null,
         Validators.required
+      ],
+      comentario: [
+        ''
       ]
+    });
+
+    this.filteredEquipos$ = this.cromoForm.get('equipo')!.valueChanges.pipe(
+      startWith(''),
+      map(valor => this.filtrarEquipos(valor))
+    );
+
+    this.filteredJugadores$ = this.cromoForm.get('jugador')!.valueChanges.pipe(
+      startWith(''),
+      map(valor => this.filtrarJugadores(valor))
+    );
+
+    this.cromoForm.get('albumId')!.valueChanges.subscribe(id => {
+      this.albumSeleccionado = this.albumes.find(a => a.id === id) ?? null;
+      this.tiposCromoAlbum = this.albumSeleccionado?.tiposCromo ?? [];
+      this.equiposAlbum = this.albumSeleccionado?.equipos ?? [];
+
+      this.jugadores = [];
+      this.cromos = [];
+      this.mostrarTabla = false;
+
+      this.cromoForm.patchValue({
+        tipoCromoId: null,
+        equipo: null,
+        numero: '',
+        jugador: null,
+        edicionId: null,
+        comentario: ''
+      });
+
+      this.cdr.detectChanges();
     });
   }
 
   private cargarDatos(): void {
-    this.cargarEdiciones();
-    this.cargarAlbumes();
-    this.cargarEquipos();
-    this.cargarTiposCromo();
-  }
-
-  private cargarEdiciones(): void {
-    this.http
-      .get<any[]>(`${this.apiUrl}/Ediciones`)
+    this.albumService
+      .getAlbumes()
       .subscribe({
-        next: data => {
-          this.ediciones = data;
+        next: albumes => {
+          this.albumes = albumes;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.error = 'No se han podido cargar los álbumes.';
+        }
+      });
+
+    this.edicionService
+      .getEdiciones()
+      .subscribe({
+        next: ediciones => {
+          this.ediciones = ediciones;
           this.cdr.detectChanges();
         },
         error: () => {
@@ -100,140 +161,61 @@ export class AnadirCromoComponent implements OnInit {
       });
   }
 
-  private cargarAlbumes(): void {
-    this.http
-      .get<any[]>(`${this.apiUrl}/Albumes`)
-      .subscribe({
-        next: data => {
-          this.albumes = data;
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          this.error = 'No se han podido cargar los álbumes.';
-        }
-      });
+  // Los autocompletes guardan el objeto: si el usuario escribe texto y no elige
+  // opcion, el valor es un string y no serviria para enviar el id.
+  private seleccionValida(control: AbstractControl): ValidationErrors | null {
+    const valor = control.value;
+    return valor && typeof valor === 'object' ? null : { seleccionIncompleta: true };
   }
 
-  private cargarEquipos(): void {
-    this.http
-      .get<any[]>(`${this.apiUrl}/Equipos`)
-      .subscribe({
-        next: data => {
-          this.equipos = data;
-          this.filteredEquipos$ = this.cromoForm.get('equipo')!.valueChanges.pipe(
-            startWith(''),
-            map(value => this.filtrarEquipos(value))
-          );
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          this.error = 'No se han podido cargar los equipos.';
-        }
-      });
+  get equipoId(): number | null {
+    const equipo = this.cromoForm?.get('equipo')?.value;
+    return equipo && typeof equipo === 'object' ? equipo.id : null;
   }
 
-  filtrarEquipos(value: any): any[] {
-    const filtro = (typeof value === 'string' ? value : '').toLowerCase();
-    return this.equipos.filter(e => e.nombre.toLowerCase().includes(filtro));
+  filtrarEquipos(valor: any): AlbumEquipo[] {
+    const filtro = (typeof valor === 'string' ? valor : '').toLowerCase();
+    return this.equiposAlbum.filter(e => e.nombre.toLowerCase().includes(filtro));
   }
 
-  onEquipoInput(value: string): void {
-    this.cromoForm.get('equipo')?.setValue(value);
+  filtrarJugadores(valor: any): JugadorEquipo[] {
+    const filtro = (typeof valor === 'string' ? valor : '').toLowerCase();
+    return this.jugadores.filter(j => (j.nombreCompleto || j.nombre).toLowerCase().includes(filtro));
   }
 
-  onEquipoSelected(equipo: any): void {
-    this.cromoForm.get('equipo')?.setValue(equipo);
-    this.onEquipoChange();
-  }
-
-  displayEquipo(equipo: any): string {
+  displayEquipo(equipo: AlbumEquipo | null): string {
     return equipo?.nombre ?? '';
   }
 
-  onEquipoChange(): void {
-    const equipo = this.cromoForm.get('equipo')?.value;
-    const equipoId = equipo?.id;
-
-    this.jugadores = [];
-
-    this.cromoForm.patchValue({ jugador: null });
-
-    if (!equipoId) {
-      this.cromoForm.get('jugador')?.disable();
-      return;
-    }
-
-    this.http
-      .get<any[]>(`${this.apiUrl}/Equipos/${equipoId}/Jugadores`)
-      .subscribe({
-        next: data => {
-          this.jugadores = data;
-          this.filteredJugadores$ = this.cromoForm.get('jugador')!.valueChanges.pipe(
-            startWith(''),
-            map(value => this.filtrarJugadores(value))
-          );
-          this.cromoForm.get('jugador')?.enable();
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          this.error = 'No se han podido cargar los jugadores.';
-        }
-      });
-  }
-
-  filtrarJugadores(value: any): any[] {
-    const filtro = (typeof value === 'string' ? value : '').toLowerCase();
-    return this.jugadores.filter(j =>
-      ((j.nombreCompleto || j.nombre) as string).toLowerCase().includes(filtro)
-    );
-  }
-
-  onJugadorInput(value: string): void {
-    this.cromoForm.get('jugador')?.setValue(value);
-  }
-
-  onJugadorSelected(jugador: any): void {
-    this.cromoForm.get('jugador')?.setValue(jugador);
-  }
-
-  displayJugador(jugador: any): string {
+  displayJugador(jugador: JugadorEquipo | null): string {
     if (!jugador) return '';
     return typeof jugador === 'string' ? jugador : (jugador.nombreCompleto || jugador.nombre);
   }
 
-  private cargarTiposCromo(): void {
-    this.http
-      .get<any[]>(`${this.apiUrl}/TiposCromo`)
+  onEquipoSelected(equipo: AlbumEquipo): void {
+    this.cromoForm.get('equipo')?.setValue(equipo);
+    this.onEquipoChange();
+  }
+
+  onEquipoChange(): void {
+    this.jugadores = [];
+    this.cromoForm.get('jugador')?.setValue(null);
+
+    const equipoId = this.equipoId;
+
+    if (!equipoId) return;
+
+    this.jugadorService
+      .getJugadoresPorEquipo(equipoId)
       .subscribe({
-        next: data => {
-          this.tiposCromo = data;
-          this.filteredTiposCromo$ = this.cromoForm.get('tipoCromo')!.valueChanges.pipe(
-            startWith(''),
-            map(value => this.filtrarTiposCromo(value))
-          );
+        next: jugadores => {
+          this.jugadores = jugadores;
           this.cdr.detectChanges();
         },
         error: () => {
-          this.error = 'No se han podido cargar los tipos de cromo.';
+          this.error = 'No se han podido cargar los jugadores del equipo.';
         }
       });
-  }
-
-  filtrarTiposCromo(value: any): any[] {
-    const filtro = (typeof value === 'string' ? value : value?.nombre ?? '').toLowerCase();
-    return this.tiposCromo.filter(t => t.nombre.toLowerCase().includes(filtro));
-  }
-
-  onTipoCromoInput(value: string): void {
-    this.cromoForm.get('tipoCromo')?.setValue(value);
-  }
-
-  onTipoCromoSelected(tipo: any): void {
-    this.cromoForm.get('tipoCromo')?.setValue(tipo);
-  }
-
-  displayTipoCromo(tipo: any): string {
-    return tipo?.nombre ?? '';
   }
 
   guardar(): void {
@@ -242,43 +224,98 @@ export class AnadirCromoComponent implements OnInit {
       return;
     }
 
-    this.cargando = true;
+    this.guardando = true;
     this.mensaje = '';
     this.error = '';
 
-    const cromo = {
+    const payload = {
       numero: this.cromoForm.get('numero')?.value,
-      edicionId: this.cromoForm.get('edicionId')?.value,
-      albumId: this.cromoForm.get('albumId')?.value,
-      equipoId: this.cromoForm.get('equipo')?.value?.id,
+      albumId: this.albumSeleccionado!.id,
+      equipoId: this.equipoId,
       jugadorId: this.cromoForm.get('jugador')?.value?.id,
-      tipoCromoId: this.cromoForm.get('tipoCromo')?.value?.id
+      tipoCromoId: this.cromoForm.get('tipoCromoId')?.value,
+      edicionId: this.cromoForm.get('edicionId')?.value,
+      comentario: (this.cromoForm.get('comentario')?.value ?? '').trim() || null,
+      publicacionId: null,
+      coleccionId: null
     };
 
     this.http
-      .post(`${this.apiUrl}/Cromo`, cromo)
+      .post(`${this.apiUrl}/Cromo`, payload)
       .subscribe({
         next: () => {
-          this.cargando = false;
+          this.guardando = false;
           this.mensaje = 'Cromo añadido correctamente.';
-          // Solo se limpia el jugador; numero, equipo, tipo de cromo,
-          // álbum y edición se conservan para facilitar altas consecutivas.
-          this.cromoForm.patchValue({ jugador: null });
-          this.cromoForm.get('jugador')?.disable();
+          // Solo se limpian numero y jugador; album, tipo, equipo y edicion se
+          // conservan para facilitar altas consecutivas del mismo equipo.
+          this.cromoForm.patchValue({ numero: '', jugador: null });
+          if (this.mostrarTabla) {
+            this.verEquipo();
+          }
           this.cdr.detectChanges();
         },
         error: () => {
-          this.cargando = false;
+          this.guardando = false;
           this.error = 'No se ha podido añadir el cromo.';
         }
       });
   }
 
-  cancelar(): void {
-    this.cromoForm.reset();
-    this.mensaje = '';
+  verEquipo(): void {
+    const albumId = this.albumSeleccionado?.id;
+    const equipoId = this.equipoId;
+
+    if (!albumId || !equipoId) {
+      this.error = 'Selecciona un álbum y un equipo para ver sus cromos.';
+      return;
+    }
+
+    this.cargando = true;
     this.error = '';
-    this.cromoForm.get('jugador')?.disable();
-    this.cdr.detectChanges();
+
+    this.albumService
+      .getAlbumConCromos(albumId)
+      .subscribe({
+        next: detalle => {
+          this.cromos = detalle.equipos.find(e => e.id === equipoId)?.cromos ?? [];
+          this.mostrarTabla = true;
+          this.cargando = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.cargando = false;
+          this.error = 'No se han podido cargar los cromos del equipo.';
+        }
+      });
+  }
+
+  editarCromo(cromo: AlbumCromo): void {
+    if (!this.albumSeleccionado) return;
+
+    const dialogRef = this.dialog.open(CromoEditarComponent, {
+      width: '520px',
+      data: { cromo, albumId: this.albumSeleccionado.id }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.verEquipo();
+      }
+    });
+  }
+
+  eliminarCromo(cromo: AlbumCromo): void {
+    if (!confirm(`¿Seguro que quieres eliminar el cromo ${cromo.numero} de ${cromo.jugador.nombre}?`)) {
+      return;
+    }
+
+    this.http
+      .delete<void>(`${this.apiUrl}/Cromo/${cromo.id}`)
+      .subscribe({
+        next: () => this.verEquipo(),
+        error: () => {
+          this.error = 'No se ha podido eliminar el cromo.';
+        }
+      });
   }
 }

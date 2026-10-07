@@ -35,10 +35,14 @@ export interface AlbumPayload {
 export interface AlbumCromo {
   id: number;
   numero: string;
+  comentario?: string | null;
   jugador: { id: number; nombre: string };
   equipo: { id: number; nombre: string };
   edicion: { id: number; nombre: string };
+  publicacion?: { id: number; temporada: string } | null;
+  temporada?: string;
   tipoCromo: { id: number; nombre: string };
+  coleccion: { id: number; nombre: string } | null;
 }
 
 export interface AlbumEquipoConCromos {
@@ -85,6 +89,10 @@ export class AlbumService {
 
   eliminarAlbum(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  eliminarAlbumPersonalizado(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}/personalizado`);
   }
 
   getAlbumConCromos(id: number): Observable<AlbumDetalle> {

@@ -1,0 +1,47 @@
+<div class="campo-equipos" [class.invalido]="muestraError">
+
+  <mat-chip-set class="chips" *ngIf="seleccion.length > 0">
+    <mat-chip-row
+      *ngFor="let equipo of seleccion"
+      [removable]="true"
+      (removed)="quitar(equipo)">
+
+      {{ equipo.nombre }}
+
+      <button
+        matChipRemove
+        type="button"
+        [attr.aria-label]="'Quitar ' + equipo.nombre">
+        <mat-icon>cancel</mat-icon>
+      </button>
+
+    </mat-chip-row>
+  </mat-chip-set>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>{{ label }}</mat-label>
+
+    <input
+      matInput
+      type="text"
+      [formControl]="busqueda"
+      [matAutocomplete]="autoEquipos"
+      [placeholder]="placeholder"
+      (blur)="marcarTocado()">
+
+    <mat-progress-spinner matSuffix *ngIf="cargando" diameter="18"></mat-progress-spinner>
+    <mat-icon matSuffix *ngIf="!cargando">groups</mat-icon>
+
+    <mat-autocomplete #autoEquipos (optionSelected)="elegir($event.option.value)">
+      <mat-option *ngFor="let equipo of filtrados$ | async" [value]="equipo">
+        {{ equipo.nombre }}
+      </mat-option>
+    </mat-autocomplete>
+  </mat-form-field>
+
+  <p class="error-campo" *ngIf="muestraError">
+    <mat-icon>error_outline</mat-icon>
+    {{ errorCarga || errorText }}
+  </p>
+
+</div>

@@ -148,6 +148,9 @@ namespace CromosList.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("coleccion_id");
 
+                    b.Property<string>("Comentario")
+                        .HasColumnType("text");
+
                     b.Property<long>("EdicionId")
                         .HasColumnType("bigint")
                         .HasColumnName("edicion_id");

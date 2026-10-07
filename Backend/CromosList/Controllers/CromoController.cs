@@ -11,6 +11,9 @@ namespace CromosList.Controllers;
 [Authorize]
 public class CromoController : ControllerBase
 {
+    // Los cromos de un álbum personalizado solo se ven para su usuario.
+    private const string TemporadaPersonalizado = "Personalizado";
+
     private readonly CromosListDbContext _context;
 
     public CromoController(CromosListDbContext context)
@@ -21,6 +24,8 @@ public class CromoController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? q)
     {
+        var (miId, esAdmin) = await MiUsuarioAsync();
+
         var consulta = _context.Cromos
             .AsNoTracking()
             .Include(c => c.Jugador)
@@ -31,6 +36,9 @@ public class CromoController : ControllerBase
             .Include(c => c.Coleccion)
             .Include(c => c.Album)
             .AsQueryable();
+
+        if (!esAdmin)
+            consulta = OcultarAlbumesPersonalizados(consulta, miId);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -47,6 +55,7 @@ public class CromoController : ControllerBase
             {
                 c.Id,
                 c.Numero,
+                c.Comentario,
 
                 Jugador = new
                 {
@@ -106,7 +115,9 @@ public class CromoController : ControllerBase
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var cromo = await _context.Cromos
+        var (miId, esAdmin) = await MiUsuarioAsync();
+
+        var consulta = _context.Cromos
             .AsNoTracking()
             .Include(c => c.Jugador)
             .Include(c => c.Equipo)
@@ -115,11 +126,17 @@ public class CromoController : ControllerBase
             .Include(c => c.TipoCromo)
             .Include(c => c.Coleccion)
             .Include(c => c.Album)
-            .Where(c => c.Id == id)
+            .Where(c => c.Id == id);
+
+        if (!esAdmin)
+            consulta = OcultarAlbumesPersonalizados(consulta, miId);
+
+        var cromo = await consulta
             .Select(c => new
             {
                 c.Id,
                 c.Numero,
+                c.Comentario,
 
                 Jugador = new
                 {
@@ -233,7 +250,8 @@ public class CromoController : ControllerBase
             PublicacionId = dto.PublicacionId,
             TipoCromoId = dto.TipoCromoId,
             ColeccionId = dto.ColeccionId,
-            AlbumId = dto.AlbumId
+            AlbumId = dto.AlbumId,
+            Comentario = dto.Comentario
         };
 
         _context.Cromos.Add(cromo);
@@ -305,6 +323,11 @@ public class CromoController : ControllerBase
         cromo.ColeccionId = dto.ColeccionId;
         cromo.AlbumId = dto.AlbumId;
 
+        // El comentario es opcional: si no viene en la peticion se conserva
+        // el valor actual para no perderlo al editar desde otras pantallas.
+        if (dto.Comentario is not null)
+            cromo.Comentario = dto.Comentario;
+
         await _context.SaveChangesAsync();
 
         return Ok(cromo);
@@ -327,5 +350,46 @@ public class CromoController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // Descarta los cromos que pertenecen a los álbumes personalizados de otros
+    // usuarios, dejando solo los del propio usuario.
+    private IQueryable<Models.Cromo> OcultarAlbumesPersonalizados(
+        IQueryable<Models.Cromo> consulta,
+        long usuarioId)
+    {
+        // Sin id de usuario no se puede comprobar la pertenencia, asi que se
+        // ocultan todos los cromos de álbumes personalizados.
+        var miosAlbumes = usuarioId == 0
+            ? Enumerable.Empty<long>().AsQueryable()
+            : _context.UsuariosAlbumes
+                .Where(ua => ua.UsuarioId == usuarioId)
+                .Select(ua => ua.AlbumId);
+
+        return consulta.Where(c =>
+            c.Album.Temporada != TemporadaPersonalizado ||
+            miosAlbumes.Contains(c.AlbumId));
+    }
+
+    private long ObtenerMiId()
+    {
+        var sub = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst("sub")?.Value;
+
+        return long.TryParse(sub!, out var id) ? id : 0;
+    }
+
+    private async Task<(long UsuarioId, bool EsAdmin)> MiUsuarioAsync()
+    {
+        var id = ObtenerMiId();
+
+        if (id == 0)
+            return (0, false);
+
+        var esAdmin = await _context.Usuarios
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == id && u.EsAdmin);
+
+        return (id, esAdmin);
     }
 }

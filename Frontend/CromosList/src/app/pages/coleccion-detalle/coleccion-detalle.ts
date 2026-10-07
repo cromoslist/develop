@@ -14,9 +14,17 @@ import { UsuarioAlbumService, ColeccionProgreso } from '../../services/usuario-a
 import { UsuarioCromoService } from '../../services/usuario-cromo.service';
 import { AuthService } from '../../services/auth.service';
 import { CromoEditarComponent } from './cromo-editar';
+import { normalizarTexto } from '../../shared/texto.util';
 
 export interface EspecialGrupo {
   tipo: string;
+  cromos: AlbumCromo[];
+}
+
+export interface ColeccionGrupo {
+  id: number | null;
+  nombre: string;
+  temporadas: string[];
   cromos: AlbumCromo[];
 }
 
@@ -50,6 +58,10 @@ export class ColeccionDetalleComponent implements OnInit {
   placeholders = [1, 2, 3, 4];
 
   especiales: EspecialGrupo[] = [];
+  especialesVisibles: EspecialGrupo[] = [];
+
+  colecciones: ColeccionGrupo[] = [];
+  coleccionesVisibles: ColeccionGrupo[] = [];
 
   private miId: number | null = null;
   private tenidosIds = new Set<number>();
@@ -98,6 +110,27 @@ export class ColeccionDetalleComponent implements OnInit {
     return this.authService.isAdmin();
   }
 
+  get esPersonalizado(): boolean {
+    return this.album?.temporada === 'Personalizado';
+  }
+
+  get jugadorNombre(): string {
+    if (!this.album) return '';
+    return this.album.nombre.replace(/^Álbum de\s+/i, '').trim() || this.album.nombre;
+  }
+
+  get jugadorInicial(): string {
+    const n = this.jugadorNombre;
+    if (!n) return '?';
+    const partes = n.split(' ');
+    return (partes[0][0] + (partes[1]?.[0] ?? '')).toUpperCase();
+  }
+
+  get totalCromos(): number {
+    if (!this.album) return 0;
+    return this.album.equipos.reduce((suma, e) => suma + e.cromos.length, 0);
+  }
+
   trackEquipo(_: number, equipo: any): number {
     return equipo.id;
   }
@@ -106,9 +139,23 @@ export class ColeccionDetalleComponent implements OnInit {
     return grupo.tipo;
   }
 
+  // Tipos que se muestran en la rejilla del equipo junto a los basicos.
+  // Los entrenadores no van aparte: comparten grupo con basicos y bajas.
+  private readonly tiposEnBase = [
+    'basica',
+    'coloca',
+    'baja',
+    'entrenador',
+    'entrenadores',
+    'cuerpo tecnico',
+    'ficha bis',
+    'fichas bis',
+    'estadio'
+  ];
+
   esBasico(tipo: string): boolean {
-    const t = (tipo || '').trim().toLowerCase();
-    return t === 'básica' || t === 'basica' || t === 'coloca' || t === 'baja';
+    const t = normalizarTexto(tipo);
+    return this.tiposEnBase.some(base => t === base || t.startsWith(base));
   }
 
   cromosDeEquipo(equipo: AlbumEquipoConCromos): AlbumCromo[] {
@@ -124,18 +171,13 @@ export class ColeccionDetalleComponent implements OnInit {
       : cromos;
   }
 
-  get especialesVisibles(): EspecialGrupo[] {
-    if (!this.soloFaltan) return this.especiales;
-    return this.especiales
-      .map(grupo => ({
-        tipo: grupo.tipo,
-        cromos: grupo.cromos.filter(c => !this.loTiene(c))
-      }))
-      .filter(grupo => grupo.cromos.length > 0);
+  trackColeccion(_: number, grupo: ColeccionGrupo): number | null {
+    return grupo.id;
   }
 
   cambiarFiltro(checked: boolean): void {
     this.soloFaltan = checked;
+    this.aplicarFiltro();
     this.cdr.detectChanges();
   }
 
@@ -239,12 +281,79 @@ export class ColeccionDetalleComponent implements OnInit {
     }
   }
 
+  private construirColecciones(data: AlbumDetalle): void {
+    const grupos = new Map<number | null, ColeccionGrupo>();
+
+    for (const equipo of data.equipos) {
+      for (const cromo of equipo.cromos) {
+        const id = cromo.coleccion?.id ?? null;
+        const nombre = cromo.coleccion?.nombre ?? 'Sin colección';
+
+        if (!grupos.has(id)) {
+          grupos.set(id, { id, nombre, temporadas: [], cromos: [] });
+        }
+        grupos.get(id)!.cromos.push(cromo);
+      }
+    }
+
+    const ordenados: ColeccionGrupo[] = [];
+
+    for (const grupo of grupos.values()) {
+      grupo.cromos.sort((a, b) => this.compararNumero(a, b));
+      grupo.temporadas = this.temporadasDe(grupo.cromos);
+      ordenados.push(grupo);
+    }
+
+    this.colecciones = ordenados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
+  private temporadasDe(cromos: AlbumCromo[]): string[] {
+    const temporadas = new Set<string>();
+
+    for (const cromo of cromos) {
+      const temporada = cromo.temporada?.trim() || cromo.publicacion?.temporada?.trim();
+      if (temporada) temporadas.add(temporada);
+    }
+
+    return [...temporadas].sort((a, b) => a.localeCompare(b));
+  }
+
+  temporadaGrupo(grupo: ColeccionGrupo): string {
+    if (grupo.temporadas.length === 0) return '';
+    if (grupo.temporadas.length === 1) return grupo.temporadas[0];
+    return `${grupo.temporadas[0]} +${grupo.temporadas.length - 1}`;
+  }
+
+  private aplicarFiltro(): void {
+    this.especialesVisibles = this.soloFaltan
+      ? this.especiales
+          .map(grupo => ({
+            tipo: grupo.tipo,
+            cromos: grupo.cromos.filter(c => !this.loTiene(c))
+          }))
+          .filter(grupo => grupo.cromos.length > 0)
+      : this.especiales;
+
+    this.coleccionesVisibles = this.soloFaltan
+      ? this.colecciones
+          .map(grupo => ({
+            id: grupo.id,
+            nombre: grupo.nombre,
+            temporadas: grupo.temporadas,
+            cromos: grupo.cromos.filter(c => !this.loTiene(c))
+          }))
+          .filter(grupo => grupo.cromos.length > 0)
+      : this.colecciones;
+  }
+
   private cargarDetalle(id: number): void {
     this.cargando = true;
     this.albumService.getAlbumConCromos(id).subscribe({
       next: data => {
         this.album = data;
         this.construirEspeciales(data);
+        this.construirColecciones(data);
+        this.aplicarFiltro();
         this.cargando = false;
         this.cdr.detectChanges();
 
@@ -267,6 +376,7 @@ export class ColeccionDetalleComponent implements OnInit {
       next: data => {
         this.progreso = data;
         this.tenidosIds = new Set(data.cromosTenidos);
+        this.aplicarFiltro();
         this.cdr.detectChanges();
       },
       error: () => {

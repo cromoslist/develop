@@ -9,7 +9,7 @@
 
       <mat-card-title>Añadir nuevo cromo</mat-card-title>
       <mat-card-subtitle>
-        Completa los datos del cromo que quieres añadir
+        Elige el álbum, el tipo de cromo y el equipo para crear el cromo
       </mat-card-subtitle>
     </mat-card-header>
 
@@ -17,11 +17,120 @@
 
       <form [formGroup]="cromoForm" (ngSubmit)="guardar()">
 
+        <!-- Álbum -->
+        <mat-form-field appearance="outline">
+          <mat-label>Álbum</mat-label>
+
+          <mat-select formControlName="albumId">
+
+            <mat-option [value]="null">
+              Selecciona un álbum
+            </mat-option>
+
+            <mat-option
+              *ngFor="let album of albumes"
+              [value]="album.id">
+
+              {{ album.nombre }} ({{ album.temporada }})
+
+            </mat-option>
+
+          </mat-select>
+
+          <mat-icon matSuffix>album</mat-icon>
+
+          <mat-error *ngIf="cromoForm.get('albumId')?.touched && cromoForm.get('albumId')?.hasError('required')">
+            El álbum es obligatorio
+          </mat-error>
+        </mat-form-field>
+
+        <p class="aviso error-note" *ngIf="error">
+          {{ error }}
+        </p>
+
+        <p class="aviso ok-note" *ngIf="mensaje">
+          <mat-icon>check_circle</mat-icon>
+          {{ mensaje }}
+        </p>
+
+        <div class="form-grid">
+
+          <!-- Tipo de cromo -->
+          <mat-form-field appearance="outline">
+            <mat-label>Tipo de cromo</mat-label>
+
+            <mat-select
+              formControlName="tipoCromoId"
+              [disabled]="!albumSeleccionado">
+
+              <mat-option [value]="null">
+                Selecciona un tipo de cromo
+              </mat-option>
+
+              <mat-option
+                *ngFor="let tipo of tiposCromoAlbum"
+                [value]="tipo.id">
+
+                {{ tipo.nombre }}
+
+              </mat-option>
+
+            </mat-select>
+
+            <mat-icon matSuffix>category</mat-icon>
+
+            <mat-error *ngIf="cromoForm.get('tipoCromoId')?.touched && cromoForm.get('tipoCromoId')?.hasError('required')">
+              El tipo de cromo es obligatorio
+            </mat-error>
+          </mat-form-field>
+
+
+          <!-- Equipo -->
+          <mat-form-field appearance="outline">
+            <mat-label>Equipo</mat-label>
+
+            <input
+              matInput
+              type="text"
+              formControlName="equipo"
+              [matAutocomplete]="autoEquipo"
+              [disabled]="!albumSeleccionado"
+              placeholder="Busca un equipo...">
+
+            <mat-autocomplete
+              #autoEquipo="matAutocomplete"
+              [displayWith]="displayEquipo"
+              (optionSelected)="onEquipoSelected($event.option.value)">
+
+              <mat-option
+                *ngFor="let equipo of filteredEquipos$ | async"
+                [value]="equipo">
+
+                {{ equipo.nombre }}
+
+              </mat-option>
+
+            </mat-autocomplete>
+
+            <mat-icon matSuffix>groups</mat-icon>
+
+            <mat-error *ngIf="cromoForm.get('equipo')?.hasError('seleccionIncompleta')">
+              Elige un equipo de la lista
+            </mat-error>
+
+            <mat-error *ngIf="cromoForm.get('equipo')?.touched && cromoForm.get('equipo')?.hasError('required')">
+              El equipo es obligatorio
+            </mat-error>
+          </mat-form-field>
+
+        </div>
+
+
         <div class="form-grid">
 
           <!-- Número -->
           <mat-form-field appearance="outline">
-            <mat-label>Número del cromo</mat-label>
+            <mat-label>Número de cromo</mat-label>
 
             <input
               matInput
@@ -46,19 +155,18 @@
               type="text"
               formControlName="jugador"
               [matAutocomplete]="autoJugador"
-              placeholder="Busca un jugador..."
-              (input)="onJugadorInput($event.target.value)">
+              [disabled]="!equipoId"
+              placeholder="Busca un jugador...">
 
             <mat-autocomplete
               #autoJugador="matAutocomplete"
-              [displayWith]="displayJugador"
-              (optionSelected)="onJugadorSelected($event.option.value)">
+              [displayWith]="displayJugador">
 
               <mat-option
                 *ngFor="let jugador of filteredJugadores$ | async"
                 [value]="jugador">
 
-                {{ jugador.nombreCompleto || jugador.nombre }}
+                {{ displayJugador(jugador) }}
 
               </mat-option>
 
@@ -66,83 +174,22 @@
 
             <mat-icon matSuffix>person</mat-icon>
 
+            <mat-error *ngIf="cromoForm.get('jugador')?.hasError('seleccionIncompleta')">
+              Elige un jugador de la lista
+            </mat-error>
+
             <mat-error *ngIf="cromoForm.get('jugador')?.touched && cromoForm.get('jugador')?.hasError('required')">
               El jugador es obligatorio
             </mat-error>
           </mat-form-field>
 
-
-          <!-- Equipo -->
-          <mat-form-field appearance="outline">
-            <mat-label>Equipo</mat-label>
-
-            <input
-              matInput
-              type="text"
-              formControlName="equipo"
-              [matAutocomplete]="autoEquipo"
-              placeholder="Busca un equipo...">
-
-            <mat-autocomplete
-              #autoEquipo="matAutocomplete"
-              [displayWith]="displayEquipo"
-              (optionSelected)="onEquipoSelected($event.option.value)">
-
-              <mat-option
-                *ngFor="let equipo of filteredEquipos$ | async"
-                [value]="equipo">
-
-                {{ equipo.nombre }}
-
-              </mat-option>
-
-            </mat-autocomplete>
-
-            <mat-icon matSuffix>groups</mat-icon>
-
-            <mat-error *ngIf="cromoForm.get('equipo')?.touched && cromoForm.get('equipo')?.hasError('required')">
-              El equipo es obligatorio
-            </mat-error>
-          </mat-form-field>
+        </div>
 
 
-          <!-- Tipo de cromo -->
-          <mat-form-field appearance="outline">
-            <mat-label>Tipo de cromo</mat-label>
-
-            <input
-              matInput
-              type="text"
-              formControlName="tipoCromo"
-              [matAutocomplete]="autoTipoCromo"
-              placeholder="Busca un tipo..."
-              (input)="onTipoCromoInput($event.target.value)">
-
-            <mat-autocomplete
-              #autoTipoCromo="matAutocomplete"
-              [displayWith]="displayTipoCromo"
-              (optionSelected)="onTipoCromoSelected($event.option.value)">
-
-              <mat-option
-                *ngFor="let tipo of filteredTiposCromo$ | async"
-                [value]="tipo">
-
-                {{ tipo.nombre }}
-
-              </mat-option>
-
-            </mat-autocomplete>
-
-            <mat-icon matSuffix>category</mat-icon>
-
-            <mat-error *ngIf="cromoForm.get('tipoCromo')?.touched && cromoForm.get('tipoCromo')?.hasError('required')">
-              El tipo de cromo es obligatorio
-            </mat-error>
-          </mat-form-field>
-
+        <div class="form-grid">
 
           <!-- Edición -->
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="full-width">
             <mat-label>Edición</mat-label>
 
             <mat-select formControlName="edicionId">
@@ -155,7 +202,7 @@
                 *ngFor="let edicion of ediciones"
                 [value]="edicion.id">
 
-                {{ edicion.nombre }}
+                {{ edicion.nombre }} ({{ edicion.temporada }})
 
               </mat-option>
 
@@ -168,32 +215,21 @@
             </mat-error>
           </mat-form-field>
 
+        </div>
 
-          <!-- Álbum -->
-          <mat-form-field appearance="outline">
-            <mat-label>Álbum</mat-label>
+        <div class="form-grid">
 
-            <mat-select formControlName="albumId">
+          <!-- Comentario -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Comentario (opcional)</mat-label>
 
-              <mat-option [value]="null">
-                Selecciona un álbum
-              </mat-option>
+            <textarea
+              matInput
+              formControlName="comentario"
+              rows="2"
+              placeholder="Nota sobre el cromo..."></textarea>
 
-              <mat-option
-                *ngFor="let album of albumes"
-                [value]="album.id">
-
-                {{ album.nombre }} ({{ album.temporada }})
-
-              </mat-option>
-
-            </mat-select>
-
-            <mat-icon matSuffix>album</mat-icon>
-
-            <mat-error *ngIf="cromoForm.get('albumId')?.touched && cromoForm.get('albumId')?.hasError('required')">
-              El álbum es obligatorio
-            </mat-error>
+            <mat-icon matSuffix>comment</mat-icon>
           </mat-form-field>
 
         </div>
@@ -201,11 +237,13 @@
         <mat-card-actions align="end">
 
           <button
-            mat-button
+            mat-stroked-button
             type="button"
-            (click)="cancelar()">
+            (click)="verEquipo()"
+            [disabled]="cargando">
 
-            Cancelar
+            <mat-icon>visibility</mat-icon>
+            {{ cargando ? 'Cargando...' : 'Visualizar equipo' }}
 
           </button>
 
@@ -213,16 +251,98 @@
             mat-flat-button
             color="primary"
             type="submit"
-            [disabled]="cargando">
+            [disabled]="guardando">
 
             <mat-icon>save</mat-icon>
-            {{ cargando ? 'Guardando...' : 'Guardar cromo' }}
+            {{ guardando ? 'Guardando...' : 'Guardar cromo' }}
 
           </button>
 
         </mat-card-actions>
 
       </form>
+
+    </mat-card-content>
+
+  </mat-card>
+
+
+  <mat-card class="cromo-card tabla-card" *ngIf="mostrarTabla">
+
+    <mat-card-header>
+      <div mat-card-avatar class="header-icon">
+        <mat-icon>list</mat-icon>
+      </div>
+
+      <mat-card-title>Cromos del equipo</mat-card-title>
+      <mat-card-subtitle>
+        {{ cromoForm.get('equipo')?.value?.nombre }} · {{ albumSeleccionado?.nombre }}
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+
+      <table mat-table [dataSource]="cromos" class="cromos-table">
+
+        <ng-container matColumnDef="numero">
+          <th mat-header-cell *matHeaderCellDef>Número</th>
+          <td mat-cell *matCellDef="let cromo">{{ cromo.numero }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="jugador">
+          <th mat-header-cell *matHeaderCellDef>Jugador</th>
+          <td mat-cell *matCellDef="let cromo">{{ cromo.jugador.nombre }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="tipoCromo">
+          <th mat-header-cell *matHeaderCellDef>Tipo de cromo</th>
+          <td mat-cell *matCellDef="let cromo">{{ cromo.tipoCromo.nombre }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="edicion">
+          <th mat-header-cell *matHeaderCellDef>Edición</th>
+          <td mat-cell *matCellDef="let cromo">{{ cromo.edicion.nombre }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="acciones">
+          <th mat-header-cell *matHeaderCellDef>Acciones</th>
+
+          <td mat-cell *matCellDef="let cromo" class="acciones">
+
+            <button
+              mat-icon-button
+              type="button"
+              (click)="editarCromo(cromo)"
+              aria-label="Editar cromo"
+              matTooltip="Editar cromo">
+
+              <mat-icon>edit</mat-icon>
+
+            </button>
+
+            <button
+              mat-icon-button
+              color="warn"
+              type="button"
+              (click)="eliminarCromo(cromo)"
+              aria-label="Eliminar cromo"
+              matTooltip="Eliminar cromo">
+
+              <mat-icon>delete</mat-icon>
+
+            </button>
+
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="columnas"></tr>
+        <tr mat-row *matRowDef="let fila; columns: columnas;"></tr>
+
+      </table>
+
+      <p class="vacio" *ngIf="!cargando && cromos.length === 0">
+        Este equipo todavía no tiene cromos en el álbum.
+      </p>
 
     </mat-card-content>
 

@@ -55,21 +55,9 @@
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Equipos</mat-label>
-
-            <mat-select formControlName="equipos" multiple>
-              <mat-option *ngFor="let equipo of equipos" [value]="equipo.id">
-                {{ equipo.nombre }}
-              </mat-option>
-            </mat-select>
-
-            <mat-icon matSuffix>groups</mat-icon>
-
-            <mat-error *ngIf="jugadorForm.get('equipos')?.hasError('required')">
-              Debes seleccionar al menos un equipo
-            </mat-error>
-          </mat-form-field>
+          <app-equipo-autocomplete
+            formControlName="equipos">
+          </app-equipo-autocomplete>
 
           <div class="mensaje" [class.error]="!!error">
             {{ mensaje }}{{ error }}

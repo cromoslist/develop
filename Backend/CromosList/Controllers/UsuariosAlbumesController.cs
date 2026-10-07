@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CromosList.Data;
 using CromosList.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,9 @@ namespace CromosList.Controllers;
 [Authorize]
 public class UsuariosAlbumesController : ControllerBase
 {
+    // Los álbumes personalizados solo pertenecen a su usuario.
+    private const string TemporadaPersonalizado = "Personalizado";
+
     private readonly CromosListDbContext _context;
 
     public UsuariosAlbumesController(CromosListDbContext context)
@@ -24,6 +28,8 @@ public class UsuariosAlbumesController : ControllerBase
     {
         if (!await _context.Usuarios.AnyAsync(u => u.Id == usuarioId))
             return NotFound("El usuario no existe.");
+
+        var (miId, esAdmin) = await MiUsuarioAsync();
 
         var albumes = await _context.UsuariosAlbumes
             .AsNoTracking()
@@ -40,7 +46,15 @@ public class UsuariosAlbumesController : ControllerBase
             .OrderBy(x => x.Nombre)
             .ToListAsync();
 
-        var ids = albumes.Select(x => x.AlbumId).ToList();
+        // Los álbumes personalizados de otro usuario no se listan aquí. Sin id de
+        // usuario no se pueden resolver, así que tampoco se muestran.
+        var visibles = albumes
+            .Where(x => x.Temporada != TemporadaPersonalizado
+                        || esAdmin
+                        || (miId > 0 && usuarioId == miId))
+            .ToList();
+
+        var ids = visibles.Select(x => x.AlbumId).ToList();
 
         var totales = await _context.Cromos
             .AsNoTracking()
@@ -56,7 +70,7 @@ public class UsuariosAlbumesController : ControllerBase
             .Select(g => new { AlbumId = g.Key, Total = g.Select(x => x.CromoId).Distinct().Count() })
             .ToDictionaryAsync(g => g.AlbumId, g => g.Total);
 
-        var resultado = albumes.Select(x =>
+        var resultado = visibles.Select(x =>
         {
             var total = totales.GetValueOrDefault(x.AlbumId);
             var tiene = tenidos.GetValueOrDefault(x.AlbumId);
@@ -87,6 +101,11 @@ public class UsuariosAlbumesController : ControllerBase
             .FirstOrDefaultAsync();
 
         if (album is null)
+            return NotFound("La colección no existe.");
+
+        var (miId, esAdmin) = await MiUsuarioAsync();
+
+        if (album.Temporada == TemporadaPersonalizado && !esAdmin && usuarioId != miId)
             return NotFound("La colección no existe.");
 
         var suscrito = await _context.UsuariosAlbumes
@@ -121,8 +140,19 @@ public class UsuariosAlbumesController : ControllerBase
         if (!await _context.Usuarios.AnyAsync(u => u.Id == dto.UsuarioId))
             return BadRequest("El usuario no existe.");
 
-        if (!await _context.Albums.AnyAsync(a => a.Id == dto.AlbumId))
+        var album = await _context.Albums
+            .AsNoTracking()
+            .Where(a => a.Id == dto.AlbumId)
+            .Select(a => new { a.Temporada })
+            .FirstOrDefaultAsync();
+
+        if (album is null)
             return BadRequest("La colección no existe.");
+
+        // Los álbumes personalizados se crean desde un jugador y solo son
+        // visibles para su propio usuario: no se pueden compartir.
+        if (album.Temporada == TemporadaPersonalizado)
+            return BadRequest("Los álbumes personalizados son exclusivos del usuario.");
 
         var yaExiste = await _context.UsuariosAlbumes
             .AnyAsync(ua => ua.UsuarioId == dto.UsuarioId && ua.AlbumId == dto.AlbumId);
@@ -142,7 +172,8 @@ public class UsuariosAlbumesController : ControllerBase
         return Ok(usuarioAlbum);
     }
 
-    // El usuario se desapunta de una colección.
+    // El usuario se desapunta de una colección. Si es un álbum personalizado,
+    // el álbum se borra de la base de datos con todos sus cromos.
     [HttpDelete("{usuarioId:long}/{albumId:long}")]
     public async Task<IActionResult> Desuscribir(long usuarioId, long albumId)
     {
@@ -152,10 +183,41 @@ public class UsuariosAlbumesController : ControllerBase
         if (usuarioAlbum is null)
             return NotFound("El usuario no está apuntado a esta colección.");
 
+        var album = await _context.Albums
+            .FirstOrDefaultAsync(a => a.Id == albumId);
+
+        if (album is not null && album.Temporada == TemporadaPersonalizado)
+        {
+            await AlbumesController.BorrarAlbumCompleto(_context, albumId, album);
+            return NoContent();
+        }
+
         _context.UsuariosAlbumes.Remove(usuarioAlbum);
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private long ObtenerMiId()
+    {
+        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst("sub")?.Value;
+
+        return long.TryParse(sub!, out var id) ? id : 0;
+    }
+
+    private async Task<(long UsuarioId, bool EsAdmin)> MiUsuarioAsync()
+    {
+        var id = ObtenerMiId();
+
+        if (id == 0)
+            return (0, false);
+
+        var esAdmin = await _context.Usuarios
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == id && u.EsAdmin);
+
+        return (id, esAdmin);
     }
 }
 

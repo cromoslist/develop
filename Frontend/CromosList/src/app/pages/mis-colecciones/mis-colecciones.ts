@@ -1,13 +1,18 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { AlbumService, Album } from '../../services/album.service';
 import { UsuarioAlbumService, ColeccionSuscripcion } from '../../services/usuario-album.service';
+import { JugadorService, Jugador } from '../../services/jugador.service';
 import { AuthService } from '../../services/auth.service';
 
 export interface ColeccionItem {
@@ -27,11 +32,15 @@ export interface ColeccionItem {
   imports: [
     CommonModule,
     RouterLink,
+    ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
     MatProgressBarModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatAutocompleteModule
   ],
   templateUrl: './mis-colecciones.html',
   styleUrl: './mis-colecciones.scss'
@@ -43,11 +52,18 @@ export class MisColeccionesComponent implements OnInit {
   cambiando = false;
   error = '';
 
+  jugadores: Jugador[] = [];
+  jugadorControl = new FormControl<string | Jugador>('');
+  jugadoresFiltrados: Jugador[] = [];
+  anadiendo = false;
+  errorPersonalizado = '';
+
   private miId: number | null = null;
 
   constructor(
     private albumService: AlbumService,
     private usuarioAlbumService: UsuarioAlbumService,
+    private jugadorService: JugadorService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -60,6 +76,8 @@ export class MisColeccionesComponent implements OnInit {
       return;
     }
     this.cargar();
+    this.cargarJugadores();
+    this.jugadorControl.valueChanges.subscribe(value => this.filtrarJugadores(value));
   }
 
   get tieneSuscripciones(): boolean {
@@ -68,6 +86,65 @@ export class MisColeccionesComponent implements OnInit {
 
   trackAlbum(_: number, item: ColeccionItem): number {
     return item.albumId;
+  }
+
+  trackJugador(_: number, jugador: Jugador): number {
+    return jugador.id;
+  }
+
+  displayJugador(jugador?: Jugador | null): string {
+    return jugador ? jugador.nombre : '';
+  }
+
+  private filtrarJugadores(valor: string | Jugador | null): void {
+    const texto = typeof valor === 'string' ? (valor || '').trim().toLowerCase() : '';
+    this.jugadoresFiltrados = texto
+      ? this.jugadores.filter(j => (j.nombre || '').toLowerCase().includes(texto))
+      : this.jugadores.slice(0, 50);
+    this.cdr.detectChanges();
+  }
+
+  anadirJugador(): void {
+    if (this.anadiendo) return;
+
+    const valor = this.jugadorControl.value;
+    const jugador = typeof valor === 'object' && valor ? valor : null;
+
+    if (!jugador) {
+      this.errorPersonalizado = 'Selecciona un jugador de la lista.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.errorPersonalizado = '';
+    this.anadiendo = true;
+
+    this.jugadorService.crearAlbumPersonalizado(jugador.id).subscribe({
+      next: () => {
+        this.anadiendo = false;
+        this.jugadorControl.reset();
+        this.cargar();
+      },
+      error: () => {
+        this.anadiendo = false;
+        this.errorPersonalizado = 'No se ha podido crear el álbum del jugador.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private cargarJugadores(): void {
+    this.jugadorService.getJugadores().subscribe({
+      next: data => {
+        this.jugadores = data;
+        this.jugadoresFiltrados = data.slice(0, 50);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.errorPersonalizado = 'No se han podido cargar los jugadores.';
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   progreso(item: ColeccionItem): number {
@@ -153,6 +230,37 @@ export class MisColeccionesComponent implements OnInit {
       error: () => {
         this.cambiando = false;
         this.error = 'No se ha podido desapuntar de la colección.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  esPersonalizado(item: ColeccionItem): boolean {
+    return item.temporada === 'Personalizado';
+  }
+
+  eliminarPersonalizado(item: ColeccionItem): void {
+    if (this.cambiando) return;
+
+    const confirmado = confirm(
+      `¿Seguro que quieres eliminar "${item.nombre}"?\n\n` +
+      'Se borrará de la base de datos junto con todos sus cromos y las marcas que hayas hecho. ' +
+      'Esta acción no se puede deshacer.'
+    );
+
+    if (!confirmado) return;
+
+    this.cambiando = true;
+    this.error = '';
+
+    this.albumService.eliminarAlbumPersonalizado(item.albumId).subscribe({
+      next: () => {
+        this.cambiando = false;
+        this.cargar();
+      },
+      error: () => {
+        this.cambiando = false;
+        this.error = 'No se ha podido eliminar el álbum.';
         this.cdr.detectChanges();
       }
     });

@@ -96,12 +96,24 @@
 
         <button
           mat-stroked-button
-          *ngIf="item.suscrito"
+          *ngIf="item.suscrito && !esPersonalizado(item)"
           [disabled]="cambiando"
           (click)="desapuntarse(item)">
 
           <mat-icon>person_remove</mat-icon>
           Desapuntarse
+
+        </button>
+
+        <button
+          mat-stroked-button
+          class="eliminar-btn"
+          *ngIf="item.suscrito && esPersonalizado(item)"
+          [disabled]="cambiando"
+          (click)="eliminarPersonalizado(item)">
+
+          <mat-icon>delete</mat-icon>
+          Eliminar
 
         </button>
 
@@ -115,5 +127,61 @@
     <mat-icon>collections_bookmark</mat-icon>
     <p>No hay colecciones disponibles todavía.</p>
   </div>
+
+  <mat-card class="personalizadas-card">
+    <mat-card-content>
+      <h2 class="personalizadas-titulo">Colecciones personalizadas</h2>
+      <p class="personalizadas-descripcion">
+        Añade un jugador y se creará un álbum nuevo e independiente con todos sus cromos.
+      </p>
+
+      <div class="personalizadas-grid">
+
+        <mat-card class="personalizada-item jugadores-item">
+          <mat-card-content>
+            <div class="jugadores-head">
+              <mat-icon>person</mat-icon>
+              <span>Jugadores</span>
+            </div>
+
+            <mat-form-field appearance="outline" class="jugador-field">
+              <mat-label>Buscar jugador</mat-label>
+              <input
+                matInput
+                type="text"
+                [formControl]="jugadorControl"
+                [matAutocomplete]="autoJugador">
+              <mat-autocomplete
+                #autoJugador="matAutocomplete"
+                [displayWith]="displayJugador">
+                <mat-option
+                  *ngFor="let jugador of jugadoresFiltrados; trackBy: trackJugador"
+                  [value]="jugador">
+                  {{ jugador.nombre }}
+                </mat-option>
+              </mat-autocomplete>
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              color="primary"
+              class="jugador-add-btn"
+              [disabled]="anadiendo"
+              (click)="anadirJugador()">
+              <mat-icon>add</mat-icon>
+              {{ anadiendo ? 'Creando...' : 'Añadir' }}
+            </button>
+          </mat-card-content>
+        </mat-card>
+
+      </div>
+
+      <p class="personalizado-error" *ngIf="errorPersonalizado">
+        <mat-icon>error_outline</mat-icon>
+        {{ errorPersonalizado }}
+      </p>
+
+    </mat-card-content>
+  </mat-card>
 
 </div>

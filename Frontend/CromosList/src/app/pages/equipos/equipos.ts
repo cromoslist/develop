@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { EquipoService, Equipo } from '../../services/equipo.service';
 
@@ -9,6 +11,8 @@ import { EquipoService, Equipo } from '../../services/equipo.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
+    MatTooltipModule,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './equipos.html',

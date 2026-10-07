@@ -4,6 +4,7 @@ import { HomeRedirectComponent } from './layout/home-redirect';
 import { LoginComponent } from './pages/login/login';
 import { RegistroComponent } from './pages/registro/registro';
 import { AnadirCromoComponent } from './pages/cromos/cromos';
+import { EquipoJugadoresComponent } from './pages/equipo-jugadores/equipo-jugadores';
 import { EquiposComponent } from './pages/equipos/equipos';
 import { JugadoresComponent } from './pages/jugadores/jugadores';
 import { TiposCromoComponent } from './pages/tipos-cromo/tipos-cromo';
@@ -56,6 +57,11 @@ export const routes: Routes = [
       {
         path: 'equipos',
         component: EquiposComponent,
+        canActivate: [esAdminGuard]
+      },
+      {
+        path: 'equipo/:id/jugadores',
+        component: EquipoJugadoresComponent,
         canActivate: [esAdminGuard]
       },
       {

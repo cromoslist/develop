@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
-import { EquipoService, Equipo } from '../../services/equipo.service';
+import { EquipoAutocompleteComponent } from '../../shared/equipo-autocomplete';
 import { JugadorService, Jugador } from '../../services/jugador.service';
 
 @Component({
@@ -10,6 +10,7 @@ import { JugadorService, Jugador } from '../../services/jugador.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    EquipoAutocompleteComponent,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './jugadores.html',
@@ -19,7 +20,6 @@ export class JugadoresComponent implements OnInit {
 
   jugadorForm!: FormGroup;
 
-  equipos: Equipo[] = [];
   jugadores: Jugador[] = [];
 
   editandoId: number | null = null;
@@ -30,14 +30,12 @@ export class JugadoresComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private equipoService: EquipoService,
     private jugadorService: JugadorService,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.crearFormulario();
-    this.cargarEquipos();
     this.cargarJugadores();
   }
 
@@ -58,19 +56,6 @@ export class JugadoresComponent implements OnInit {
         [],
         [Validators.required]
       ]
-    });
-  }
-
-  private cargarEquipos(): void {
-    this.equipoService.getEquipos().subscribe({
-      next: data => {
-        this.equipos = data;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.error = 'No se han podido cargar los equipos.';
-        this.cdr.detectChanges();
-      }
     });
   }
 

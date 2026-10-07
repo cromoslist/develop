@@ -17,4 +17,6 @@ public class CreateCromoDto
     public long? ColeccionId { get; set; }
 
     public long AlbumId { get; set; }
+
+    public string? Comentario { get; set; }
 }

@@ -94,6 +94,17 @@
           <mat-list-item *ngFor="let equipo of equipos">
             <mat-icon matListItemIcon>groups</mat-icon>
             <span matListItemTitle>{{ equipo.nombre }}</span>
+
+            <a
+              mat-icon-button
+              matListItemMeta
+              [routerLink]="['/equipo', equipo.id, 'jugadores']"
+              matTooltip="Ver jugadores"
+              matTooltipPosition="left">
+
+              <mat-icon>visibility</mat-icon>
+            </a>
+
             <button
               mat-icon-button
               matListItemMeta

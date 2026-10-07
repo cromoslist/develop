@@ -24,11 +24,12 @@
 		<Folder Include="wwwroot\" />
 	</ItemGroup>
 
-	<Target Name="BuildAngular" BeforeTargets="Build"
-          Condition="Exists('$(AngularProjectPath)\package.json') And '$(SkipAngularBuild)' != 'true'">
+<Target Name="BuildAngular" BeforeTargets="Build"
+		  Condition="Exists('$(AngularProjectPath)\package.json') And '$(SkipAngularBuild)' != 'true' And '$(BuildAngular)' == 'true'">
 		<Exec
 		  WorkingDirectory="$(AngularProjectPath)"
-		  Command="npm install"
+		  Command="npm ci"
+		  Condition="!Exists('$(AngularProjectPath)\node_modules')"
 		  ContinueOnError="WarnAndContinue" />
 
 		<Exec
@@ -43,6 +44,11 @@
 		<Copy
 		  SourceFiles="@(AngularFiles)"
 		  DestinationFiles="@(AngularFiles->'$(MSBuildProjectDirectory)\wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
+	</Target>
+
+	<Target Name="AvisarAngularNoCompilado" BeforeTargets="Build"
+		  Condition="Exists('$(AngularProjectPath)\package.json') And '$(SkipAngularBuild)' != 'true' And '$(BuildAngular)' != 'true'">
+		<Message Importance="high" Text="Angular NO se ha compilado en este build (solo afecta a wwwroot). En desarrollo usa '.\dev.cmd' (ng serve en http://localhost:4200 con recarga en caliente). Para incluirlo en el build: -p:BuildAngular=true" />
 	</Target>
 
 </Project>

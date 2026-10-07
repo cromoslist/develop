@@ -1,0 +1,134 @@
+.page-container {
+  min-height: calc(100vh - 64px);
+  padding: 40px 24px;
+  background: #f5f7fa;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.jugadores-card {
+  width: 100%;
+  max-width: 900px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+mat-card-header {
+  padding: 24px 24px 16px;
+}
+
+mat-card-title {
+  font-size: 22px !important;
+  font-weight: 600;
+}
+
+mat-card-subtitle {
+  margin-top: 6px;
+}
+
+.header-icon {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+}
+
+.header-icon mat-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+mat-card-content {
+  padding: 24px !important;
+  overflow-x: auto;
+}
+
+.jugadores-table {
+  width: 100%;
+}
+
+.jugadores-table th {
+  font-weight: 600;
+  color: #5c6bc0;
+}
+
+.jugadores-table td,
+.jugadores-table th {
+  padding: 10px 12px;
+}
+
+.equipos-col {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.buscador {
+  flex: 1;
+  max-width: 380px;
+}
+
+.resultado-busqueda {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.acciones {
+  white-space: nowrap;
+  width: 60px;
+  text-align: right;
+}
+
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  color: #c62828;
+  font-size: 14px;
+}
+
+.aviso mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.vacio,
+.cargando {
+  margin: 4px 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+mat-card-actions {
+  padding: 0 24px 24px;
+}
+
+mat-card-actions mat-icon {
+  margin-right: 6px;
+}
+
+@media (max-width: 650px) {
+
+  .page-container {
+    padding: 20px 12px;
+  }
+
+  mat-card-title {
+    font-size: 19px !important;
+  }
+}
