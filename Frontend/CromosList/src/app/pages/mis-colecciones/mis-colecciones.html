@@ -132,19 +132,19 @@
     <mat-card-content>
       <h2 class="personalizadas-titulo">Colecciones personalizadas</h2>
       <p class="personalizadas-descripcion">
-        Añade un jugador y se creará un álbum nuevo e independiente con todos sus cromos.
+        Añade un jugador o un equipo y se creará un álbum nuevo e independiente con todos sus cromos.
       </p>
 
       <div class="personalizadas-grid">
 
-        <mat-card class="personalizada-item jugadores-item">
+        <mat-card class="personalizada-item opcion-item">
           <mat-card-content>
-            <div class="jugadores-head">
+            <div class="opcion-head">
               <mat-icon>person</mat-icon>
               <span>Jugadores</span>
             </div>
 
-            <mat-form-field appearance="outline" class="jugador-field">
+            <mat-form-field appearance="outline" class="opcion-field">
               <mat-label>Buscar jugador</mat-label>
               <input
                 matInput
@@ -165,9 +165,46 @@
             <button
               mat-flat-button
               color="primary"
-              class="jugador-add-btn"
+              class="opcion-add-btn"
               [disabled]="anadiendo"
               (click)="anadirJugador()">
+              <mat-icon>add</mat-icon>
+              {{ anadiendo ? 'Creando...' : 'Añadir' }}
+            </button>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="personalizada-item opcion-item">
+          <mat-card-content>
+            <div class="opcion-head">
+              <mat-icon>shield</mat-icon>
+              <span>Equipos</span>
+            </div>
+
+            <mat-form-field appearance="outline" class="opcion-field">
+              <mat-label>Buscar equipo</mat-label>
+              <input
+                matInput
+                type="text"
+                [formControl]="equipoControl"
+                [matAutocomplete]="autoEquipo">
+              <mat-autocomplete
+                #autoEquipo="matAutocomplete"
+                [displayWith]="displayEquipo">
+                <mat-option
+                  *ngFor="let equipo of equiposFiltrados; trackBy: trackEquipo"
+                  [value]="equipo">
+                  {{ equipo.nombre }}
+                </mat-option>
+              </mat-autocomplete>
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              color="primary"
+              class="opcion-add-btn"
+              [disabled]="anadiendo"
+              (click)="anadirEquipo()">
               <mat-icon>add</mat-icon>
               {{ anadiendo ? 'Creando...' : 'Añadir' }}
             </button>

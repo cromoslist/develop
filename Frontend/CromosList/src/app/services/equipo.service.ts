@@ -27,4 +27,11 @@ export class EquipoService {
   editarEquipo(id: number, equipo: { nombre: string }): Observable<Equipo> {
     return this.http.put<Equipo>(`${this.apiUrl}/${id}`, equipo);
   }
+
+  crearAlbumPersonalizado(id: number): Observable<{ albumId: number; nombre: string }> {
+    return this.http.post<{ albumId: number; nombre: string }>(
+      `${this.apiUrl}/${id}/album-personalizado`,
+      {}
+    );
+  }
 }

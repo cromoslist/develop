@@ -1,0 +1,91 @@
+<div class="campo-equipos" [class.invalido]="muestraError">
+
+  <div class="etapas" *ngIf="seleccion.length > 0">
+
+    <div class="etapa" *ngFor="let equipo of seleccion; let i = index">
+
+      <div class="etapa-nombre">
+        <mat-icon>shield</mat-icon>
+        <span>{{ equipo.nombre || 'Equipo' }}</span>
+      </div>
+
+      <mat-form-field appearance="outline" class="temporada">
+        <mat-label>Desde</mat-label>
+
+        <input
+          matInput
+          type="text"
+          [(ngModel)]="equipo.temporadaInicio"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="propagar()"
+          placeholder="2004/2005"
+          [disabled]="deshabilitado">
+
+        <mat-hint>Temporada de inicio</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="temporada">
+        <mat-label>Hasta</mat-label>
+
+        <input
+          matInput
+          type="text"
+          [(ngModel)]="equipo.temporadaFin"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="propagar()"
+          placeholder="2020/2021"
+          [disabled]="deshabilitado">
+
+        <mat-hint>Vacío si sigue en el equipo</mat-hint>
+      </mat-form-field>
+
+      <button
+        mat-icon-button
+        type="button"
+        class="quitar"
+        (click)="quitar(i)"
+        [attr.aria-label]="'Quitar ' + equipo.nombre">
+
+        <mat-icon>delete</mat-icon>
+
+      </button>
+
+    </div>
+
+  </div>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>{{ label }}</mat-label>
+
+    <input
+      matInput
+      type="text"
+      [formControl]="busqueda"
+      [matAutocomplete]="autoEquipos"
+      [placeholder]="placeholder"
+      (blur)="marcarTocado()">
+
+    <mat-hint>Puedes añadir el mismo equipo varias veces para distintas etapas</mat-hint>
+
+    <mat-progress-spinner matSuffix *ngIf="cargando" diameter="18"></mat-progress-spinner>
+    <mat-icon matSuffix *ngIf="!cargando">add</mat-icon>
+
+    <mat-autocomplete #autoEquipos (optionSelected)="onOptionSelected($event.option.value)">
+      <mat-option *ngFor="let equipo of filtrados$ | async" [value]="equipo">
+        {{ equipo.nombre }}
+      </mat-option>
+
+      <mat-option *ngIf="puedeCrear" [value]="opcionCrear" class="opcion-crear">
+        <mat-icon>add</mat-icon>
+        Crear «{{ busqueda.value }}»
+        <mat-progress-spinner *ngIf="creando" diameter="16"></mat-progress-spinner>
+      </mat-option>
+    </mat-autocomplete>
+  </mat-form-field>
+
+  <p class="error-campo" *ngIf="muestraError">
+    <mat-icon>error_outline</mat-icon>
+    {{ textoError }}
+  </p>
+
+</div>

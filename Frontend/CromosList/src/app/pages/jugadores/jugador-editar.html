@@ -31,9 +31,22 @@
       </mat-error>
     </mat-form-field>
 
-    <app-equipo-autocomplete
+    <app-equipos-temporadas-editor
       formControlName="equipos">
-    </app-equipo-autocomplete>
+    </app-equipos-temporadas-editor>
+
+    <app-pais-autocomplete
+      formControlName="paises">
+    </app-pais-autocomplete>
+
+    <mat-checkbox formControlName="internacional" class="internacional-check">
+      Internacional
+    </mat-checkbox>
+
+    <app-anios-editor
+      *ngIf="esInternacional"
+      formControlName="aniosInternacional">
+    </app-anios-editor>
 
   </form>
 

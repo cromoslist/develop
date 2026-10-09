@@ -269,12 +269,12 @@
   }
 }
 
-.jugadores-item mat-card-content {
+.opcion-item mat-card-content {
   align-items: stretch;
   text-align: left;
 }
 
-.jugadores-head {
+.opcion-head {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,12 +287,12 @@
   }
 }
 
-.jugador-field {
+.opcion-field {
   width: 100%;
   margin-top: 4px;
 }
 
-.jugador-add-btn {
+.opcion-add-btn {
   justify-content: center;
 }
 

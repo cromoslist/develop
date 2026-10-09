@@ -261,6 +261,10 @@ namespace CromosList.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("Internacional")
+                        .HasColumnType("boolean")
+                        .HasColumnName("internacional");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasColumnType("text")
@@ -274,6 +278,68 @@ namespace CromosList.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("jugador", (string)null);
+                });
+
+            modelBuilder.Entity("CromosList.Models.JugadorAnioInternacional", b =>
+                {
+                    b.Property<long>("JugadorId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("jugador_id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.HasKey("JugadorId", "Anio");
+
+                    b.ToTable("jugador_anio_internacional", (string)null);
+                });
+
+            modelBuilder.Entity("CromosList.Models.JugadorEquipo", b =>
+                {
+                    b.Property<long>("JugadorId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("jugador_id");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<string>("TemporadaInicio")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("temporada_inicio");
+
+                    b.Property<string>("TemporadaFin")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("temporada_fin");
+
+                    b.HasKey("JugadorId", "EquipoId", "TemporadaInicio");
+
+                    b.HasIndex("EquipoId");
+
+                    b.ToTable("jugador_equipo", (string)null);
+                });
+
+            modelBuilder.Entity("CromosList.Models.Pais", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("pais", (string)null);
                 });
 
             modelBuilder.Entity("CromosList.Models.Publicacion", b =>
@@ -413,19 +479,19 @@ namespace CromosList.Migrations
                     b.ToTable("usuario_cromo", (string)null);
                 });
 
-            modelBuilder.Entity("equipo_jugador", b =>
+            modelBuilder.Entity("jugador_pais", b =>
                 {
-                    b.Property<long>("equipo_id")
+                    b.Property<long>("pais_id")
                         .HasColumnType("bigint");
 
                     b.Property<long>("jugador_id")
                         .HasColumnType("bigint");
 
-                    b.HasKey("equipo_id", "jugador_id");
+                    b.HasKey("pais_id", "jugador_id");
 
                     b.HasIndex("jugador_id");
 
-                    b.ToTable("equipo_jugador", (string)null);
+                    b.ToTable("jugador_pais", (string)null);
                 });
 
             modelBuilder.Entity("CromosList.Models.Album", b =>
@@ -532,6 +598,36 @@ namespace CromosList.Migrations
                     b.Navigation("TipoCromo");
                 });
 
+            modelBuilder.Entity("CromosList.Models.JugadorAnioInternacional", b =>
+                {
+                    b.HasOne("CromosList.Models.Jugador", "Jugador")
+                        .WithMany("AniosInternacional")
+                        .HasForeignKey("JugadorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Jugador");
+                });
+
+            modelBuilder.Entity("CromosList.Models.JugadorEquipo", b =>
+                {
+                    b.HasOne("CromosList.Models.Equipo", "Equipo")
+                        .WithMany("JugadorEquipos")
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CromosList.Models.Jugador", "Jugador")
+                        .WithMany("Equipos")
+                        .HasForeignKey("JugadorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Equipo");
+
+                    b.Navigation("Jugador");
+                });
+
             modelBuilder.Entity("CromosList.Models.Publicacion", b =>
                 {
                     b.HasOne("CromosList.Models.Edicion", "Edicion")
@@ -581,17 +677,17 @@ namespace CromosList.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("equipo_jugador", b =>
+            modelBuilder.Entity("jugador_pais", b =>
                 {
-                    b.HasOne("CromosList.Models.Equipo", null)
-                        .WithMany()
-                        .HasForeignKey("equipo_id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("CromosList.Models.Jugador", null)
                         .WithMany()
                         .HasForeignKey("jugador_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CromosList.Models.Pais", null)
+                        .WithMany()
+                        .HasForeignKey("pais_id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -632,11 +728,17 @@ namespace CromosList.Migrations
             modelBuilder.Entity("CromosList.Models.Equipo", b =>
                 {
                     b.Navigation("Cromos");
+
+                    b.Navigation("JugadorEquipos");
                 });
 
             modelBuilder.Entity("CromosList.Models.Jugador", b =>
                 {
+                    b.Navigation("AniosInternacional");
+
                     b.Navigation("Cromos");
+
+                    b.Navigation("Equipos");
                 });
 
             modelBuilder.Entity("CromosList.Models.Publicacion", b =>

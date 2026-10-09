@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using CromosList.Data;
 using CromosList.Models;
+using CromosList.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,14 +15,13 @@ namespace CromosList.Controllers;
 [Authorize]
 public class JugadoresController : ControllerBase
 {
-    // Marca de los álbumes creados por un usuario para sus jugadores.
-    private const string TemporadaAlbumPersonalizado = "Personalizado";
-
     private readonly CromosListDbContext _context;
+    private readonly AlbumPersonalizadoService _albumPersonalizado;
 
-    public JugadoresController(CromosListDbContext context)
+    public JugadoresController(CromosListDbContext context, AlbumPersonalizadoService albumPersonalizado)
     {
         _context = context;
+        _albumPersonalizado = albumPersonalizado;
     }
 
     [HttpGet]
@@ -33,7 +33,7 @@ public class JugadoresController : ControllerBase
 
         if (equipoId.HasValue)
         {
-            query = query.Where(j => j.Equipos.Any(e => e.Id == equipoId.Value));
+            query = query.Where(j => j.Equipos.Any(je => je.EquipoId == equipoId.Value));
         }
 
         var jugadores = await query
@@ -43,12 +43,27 @@ public class JugadoresController : ControllerBase
                 j.Id,
                 j.Nombre,
                 j.NombreCompleto,
+                j.Internacional,
                 Equipos = j.Equipos
-                    .OrderBy(e => e.Nombre)
-                    .Select(e => new
+                    .OrderBy(je => je.Equipo.Nombre)
+                    .Select(je => new
                     {
-                        e.Id,
-                        e.Nombre
+                        je.Equipo.Id,
+                        je.Equipo.Nombre,
+                        je.TemporadaInicio,
+                        je.TemporadaFin
+                    })
+                    .ToList(),
+                AniosInternacional = j.AniosInternacional
+                    .Select(a => a.Anio)
+                    .OrderBy(a => a)
+                    .ToList(),
+                Paises = j.Paises
+                    .OrderBy(p => p.Nombre)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Nombre
                     })
                     .ToList()
             })
@@ -68,12 +83,27 @@ public class JugadoresController : ControllerBase
                 j.Id,
                 j.Nombre,
                 j.NombreCompleto,
+                j.Internacional,
                 Equipos = j.Equipos
-                    .OrderBy(e => e.Nombre)
-                    .Select(e => new
+                    .OrderBy(je => je.Equipo.Nombre)
+                    .Select(je => new
                     {
-                        e.Id,
-                        e.Nombre
+                        je.Equipo.Id,
+                        je.Equipo.Nombre,
+                        je.TemporadaInicio,
+                        je.TemporadaFin
+                    })
+                    .ToList(),
+                AniosInternacional = j.AniosInternacional
+                    .Select(a => a.Anio)
+                    .OrderBy(a => a)
+                    .ToList(),
+                Paises = j.Paises
+                    .OrderBy(p => p.Nombre)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Nombre
                     })
                     .ToList()
             })
@@ -158,152 +188,15 @@ public class JugadoresController : ControllerBase
         if (jugador is null)
             return NotFound("El jugador no existe.");
 
-        var cromos = await _context.Cromos
-            .AsNoTracking()
-            .Where(c => c.JugadorId == id)
-            .Select(c => new
-            {
-                c.Numero,
-                c.JugadorId,
-                c.EquipoId,
-                c.EdicionId,
-                c.PublicacionId,
-                c.TipoCromoId,
-                c.ColeccionId,
-                c.AlbumId
-            })
-            .ToListAsync();
-
-        if (cromos.Count == 0)
-            return BadRequest("El jugador no tiene cromos todavía.");
-
         var nombreAlbum = $"Álbum de {jugador.Nombre}";
 
-        // Reutilizar solo el álbum personal del propio usuario: los álbumes
-        // personalizados de otros usuarios no son visibles ni reutilizables.
-        var albumId = await _context.Albums
-            .AsNoTracking()
-            .Where(a => a.Nombre == nombreAlbum
-                        && a.Temporada == TemporadaAlbumPersonalizado
-                        && _context.UsuariosAlbumes.Any(ua => ua.AlbumId == a.Id && ua.UsuarioId == usuarioId))
-            .Select(a => (long?)a.Id)
-            .FirstOrDefaultAsync();
+        var (albumId, error) = await _albumPersonalizado.CrearAsync(
+            usuarioId, nombreAlbum, "jugador", c => c.JugadorId == id);
 
-        if (albumId is null)
-        {
-            var editorial = await _context.Editoriales
-                .FirstOrDefaultAsync(e => e.Nombre == "Personalizado");
+        if (error is not null)
+            return BadRequest(error);
 
-            if (editorial is null)
-            {
-                editorial = new Editorial { Nombre = "Personalizado" };
-                _context.Editoriales.Add(editorial);
-                await _context.SaveChangesAsync();
-            }
-
-            var album = new Album
-            {
-                Nombre = nombreAlbum,
-                Temporada = TemporadaAlbumPersonalizado,
-                EditorialId = editorial.Id
-            };
-
-            _context.Albums.Add(album);
-            await _context.SaveChangesAsync();
-
-            var equipoIds = cromos
-                .Select(c => c.EquipoId)
-                .Distinct()
-                .ToList();
-
-            for (int i = 0; i < equipoIds.Count; i++)
-            {
-                _context.AlbumEquipos.Add(new AlbumEquipo
-                {
-                    AlbumId = album.Id,
-                    EquipoId = equipoIds[i],
-                    Orden = i
-                });
-            }
-
-            var tipoIds = cromos
-                .Select(c => c.TipoCromoId)
-                .Distinct()
-                .ToList();
-
-            for (int i = 0; i < tipoIds.Count; i++)
-            {
-                _context.AlbumTiposCromo.Add(new AlbumTipoCromo
-                {
-                    AlbumId = album.Id,
-                    TipoCromoId = tipoIds[i],
-                    Orden = i
-                });
-            }
-
-            // Colección de origen de cada cromo: se conserva el álbum del que
-            // procede como una colección reutilizable por nombre.
-            var coleccionPorAlbum = new Dictionary<long, long>();
-            var albumesOrigen = cromos
-                .Select(c => c.AlbumId)
-                .Distinct()
-                .ToList();
-
-            var albumesOrigenInfo = await _context.Albums
-                .AsNoTracking()
-                .Where(a => albumesOrigen.Contains(a.Id))
-                .Select(a => new { a.Id, a.Nombre })
-                .ToListAsync();
-
-            foreach (var alb in albumesOrigenInfo)
-            {
-                var coleccion = await _context.Colecciones
-                    .FirstOrDefaultAsync(col => col.Nombre == alb.Nombre);
-
-                if (coleccion is null)
-                {
-                    coleccion = new Coleccion { Nombre = alb.Nombre };
-                    _context.Colecciones.Add(coleccion);
-                    await _context.SaveChangesAsync();
-                }
-
-                coleccionPorAlbum[alb.Id] = coleccion.Id;
-            }
-
-            foreach (var c in cromos)
-            {
-                _context.Cromos.Add(new Cromo
-                {
-                    Numero = c.Numero,
-                    JugadorId = c.JugadorId,
-                    EquipoId = c.EquipoId,
-                    EdicionId = c.EdicionId,
-                    PublicacionId = c.PublicacionId,
-                    TipoCromoId = c.TipoCromoId,
-                    ColeccionId = coleccionPorAlbum.TryGetValue(c.AlbumId, out var colId) ? colId : null,
-                    AlbumId = album.Id
-                });
-            }
-
-            await _context.SaveChangesAsync();
-            albumId = album.Id;
-        }
-
-        var yaSuscrito = await _context.UsuariosAlbumes
-            .AnyAsync(ua => ua.UsuarioId == usuarioId && ua.AlbumId == albumId.Value);
-
-        if (!yaSuscrito)
-        {
-            _context.UsuariosAlbumes.Add(new UsuarioAlbum
-            {
-                UsuarioId = usuarioId,
-                AlbumId = albumId.Value
-            });
-        }
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new { albumId = albumId.Value, nombre = nombreAlbum });
+        return Ok(new { albumId, nombre = nombreAlbum });
     }
 
     [HttpPost]
@@ -312,15 +205,28 @@ public class JugadoresController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest("El nombre del jugador es obligatorio.");
 
-        var equipos = await ValidarEquipos(dto.Equipos);
-        if (equipos is null)
-            return BadRequest("Uno o más equipos especificados no existen.");
+        var (equipos, errorEquipos) = await ValidarEquipos(dto.Equipos);
+        if (errorEquipos is not null)
+            return BadRequest(errorEquipos);
+
+        var (anios, errorAnios) = LimpiarAnios(dto.Internacional, dto.AniosInternacional);
+        if (errorAnios is not null)
+            return BadRequest(errorAnios);
+
+        var paises = await ValidarPaises(dto.Paises);
+        if (paises is null)
+            return BadRequest("Debes indicar al menos un país válido.");
 
         var jugador = new Jugador
         {
             Nombre = dto.Nombre.Trim(),
             NombreCompleto = dto.NombreCompleto?.Trim() ?? string.Empty,
-            Equipos = equipos
+            Internacional = dto.Internacional,
+            Equipos = equipos!,
+            AniosInternacional = anios
+                .Select(a => new JugadorAnioInternacional { Anio = a })
+                .ToList(),
+            Paises = paises
         };
 
         _context.Jugadores.Add(jugador);
@@ -335,6 +241,8 @@ public class JugadoresController : ControllerBase
     {
         var existente = await _context.Jugadores
             .Include(j => j.Equipos)
+            .Include(j => j.AniosInternacional)
+            .Include(j => j.Paises)
             .FirstOrDefaultAsync(j => j.Id == id);
 
         if (existente is null)
@@ -343,13 +251,45 @@ public class JugadoresController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest("El nombre del jugador es obligatorio.");
 
-        var equipos = await ValidarEquipos(dto.Equipos);
-        if (equipos is null)
-            return BadRequest("Uno o más equipos especificados no existen.");
+        var (equipos, errorEquipos) = await ValidarEquipos(dto.Equipos);
+        if (errorEquipos is not null)
+            return BadRequest(errorEquipos);
+
+        var (anios, errorAnios) = LimpiarAnios(dto.Internacional, dto.AniosInternacional);
+        if (errorAnios is not null)
+            return BadRequest(errorAnios);
+
+        var paises = await ValidarPaises(dto.Paises);
+        if (paises is null)
+            return BadRequest("Debes indicar al menos un país válido.");
 
         existente.Nombre = dto.Nombre.Trim();
         existente.NombreCompleto = dto.NombreCompleto?.Trim() ?? string.Empty;
-        existente.Equipos = equipos;
+        existente.Internacional = dto.Internacional;
+
+        existente.Equipos.Clear();
+        foreach (var equipo in equipos!)
+        {
+            existente.Equipos.Add(new JugadorEquipo
+            {
+                JugadorId = existente.Id,
+                EquipoId = equipo.EquipoId,
+                TemporadaInicio = equipo.TemporadaInicio,
+                TemporadaFin = equipo.TemporadaFin
+            });
+        }
+
+        existente.AniosInternacional.Clear();
+        foreach (var anio in anios)
+        {
+            existente.AniosInternacional.Add(new JugadorAnioInternacional
+            {
+                JugadorId = existente.Id,
+                Anio = anio
+            });
+        }
+
+        existente.Paises = paises;
 
         await _context.SaveChangesAsync();
 
@@ -380,12 +320,27 @@ public class JugadoresController : ControllerBase
                 j.Id,
                 j.Nombre,
                 j.NombreCompleto,
+                j.Internacional,
                 Equipos = j.Equipos
-                    .OrderBy(e => e.Nombre)
-                    .Select(e => new
+                    .OrderBy(je => je.Equipo.Nombre)
+                    .Select(je => new
                     {
-                        e.Id,
-                        e.Nombre
+                        je.Equipo.Id,
+                        je.Equipo.Nombre,
+                        je.TemporadaInicio,
+                        je.TemporadaFin
+                    })
+                    .ToList(),
+                AniosInternacional = j.AniosInternacional
+                    .Select(a => a.Anio)
+                    .OrderBy(a => a)
+                    .ToList(),
+                Paises = j.Paises
+                    .OrderBy(p => p.Nombre)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Nombre
                     })
                     .ToList()
             })
@@ -393,20 +348,88 @@ public class JugadoresController : ControllerBase
             .FirstOrDefaultAsync();
     }
 
-    private async Task<List<Equipo>?> ValidarEquipos(IReadOnlyCollection<long>? equipoIds)
+    // Normaliza los años de internacionalidad: solo tiene sentido si el jugador
+    // es internacional; en ese caso exige al menos un año.
+    private static (List<int> Anios, string? Error) LimpiarAnios(bool internacional, List<int>? anios)
     {
-        if (equipoIds is null || equipoIds.Count == 0)
-            return null;
+        if (!internacional)
+            return (new List<int>(), null);
 
-        var ids = equipoIds.Distinct().ToList();
-        var equipos = await _context.Equipos
-            .Where(e => ids.Contains(e.Id))
+        var limpios = (anios ?? new List<int>())
+            .Where(a => a >= 1900 && a <= 2100)
+            .Distinct()
+            .OrderBy(a => a)
+            .ToList();
+
+        if (limpios.Count == 0)
+            return (new List<int>(), "Debes indicar al menos un año de internacionalidad.");
+
+        return (limpios, null);
+    }
+
+    // Valida y normaliza los equipos del jugador, cada uno con su temporada de
+    // inicio (obligatoria) y de fin (opcional).
+    private async Task<(List<JugadorEquipo>? Equipos, string? Error)> ValidarEquipos(List<JugadorEquipoDto>? equipos)
+    {
+        if (equipos is null || equipos.Count == 0)
+            return (null, "Debes indicar al menos un equipo.");
+
+        var normalizados = new List<JugadorEquipo>();
+        var equipoIds = new List<long>();
+        var etapas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var dto in equipos)
+        {
+            var inicio = (dto.TemporadaInicio ?? string.Empty).Trim();
+            var fin = (dto.TemporadaFin ?? string.Empty).Trim();
+
+            if (inicio.Length == 0)
+                return (null, "Cada equipo necesita una temporada de inicio.");
+
+            if (inicio.Length > 50 || fin.Length > 50)
+                return (null, "Cada temporada no puede superar los 50 caracteres.");
+
+            // Un jugador puede tener varias etapas en el mismo equipo, pero no
+            // dos con la misma temporada de inicio (chocarían en la clave).
+            if (!etapas.Add($"{dto.EquipoId}|{inicio}"))
+                return (null, "Hay dos etapas del mismo equipo con la misma temporada de inicio.");
+
+            if (!equipoIds.Contains(dto.EquipoId))
+                equipoIds.Add(dto.EquipoId);
+
+            normalizados.Add(new JugadorEquipo
+            {
+                EquipoId = dto.EquipoId,
+                TemporadaInicio = inicio,
+                TemporadaFin = fin
+            });
+        }
+
+        var existentes = await _context.Equipos
+            .Where(e => equipoIds.Contains(e.Id))
+            .Select(e => e.Id)
             .ToListAsync();
 
-        if (equipos.Count != ids.Count)
+        if (existentes.Count != equipoIds.Count)
+            return (null, "Uno o más equipos especificados no existen.");
+
+        return (normalizados, null);
+    }
+
+    private async Task<List<Pais>?> ValidarPaises(IReadOnlyCollection<long>? paisIds)
+    {
+        if (paisIds is null || paisIds.Count == 0)
             return null;
 
-        return equipos;
+        var ids = paisIds.Distinct().ToList();
+        var paises = await _context.Paises
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+
+        if (paises.Count != ids.Count)
+            return null;
+
+        return paises;
     }
 
     private static double NumeroValor(string? numero)
@@ -430,5 +453,15 @@ public class JugadorDto
 {
     public string Nombre { get; set; } = string.Empty;
     public string? NombreCompleto { get; set; }
-    public List<long> Equipos { get; set; } = new();
+    public List<JugadorEquipoDto> Equipos { get; set; } = new();
+    public bool Internacional { get; set; }
+    public List<int>? AniosInternacional { get; set; }
+    public List<long>? Paises { get; set; }
+}
+
+public class JugadorEquipoDto
+{
+    public long EquipoId { get; set; }
+    public string? TemporadaInicio { get; set; }
+    public string? TemporadaFin { get; set; }
 }

@@ -15,6 +15,9 @@ public class CromosListDbContext : DbContext
     public DbSet<UsuarioAlbum> UsuariosAlbumes => Set<UsuarioAlbum>();
     public DbSet<Cromo> Cromos => Set<Cromo>();
     public DbSet<Jugador> Jugadores => Set<Jugador>();
+    public DbSet<JugadorEquipo> JugadorEquipos => Set<JugadorEquipo>();
+    public DbSet<JugadorAnioInternacional> JugadorAniosInternacional => Set<JugadorAnioInternacional>();
+    public DbSet<Pais> Paises => Set<Pais>();
     public DbSet<Equipo> Equipos => Set<Equipo>();
     public DbSet<Edicion> Ediciones => Set<Edicion>();
     public DbSet<Publicacion> Publicaciones => Set<Publicacion>();
@@ -82,22 +85,87 @@ public class CromosListDbContext : DbContext
             entity.Property(x => x.NombreCompleto)
                 .HasColumnName("nombre_completo");
 
-            // Relación N:M con Equipo (un jugador puede pertenecer a n equipos).
-            entity.HasMany(x => x.Equipos)
+            entity.Property(x => x.Internacional)
+                .HasColumnName("internacional");
+
+            // Relación N:M con Pais (un jugador puede pertenecer a n países).
+            entity.HasMany(x => x.Paises)
                 .WithMany(x => x.Jugadores)
                 .UsingEntity<Dictionary<string, object>>(
-                    "equipo_jugador",
-                    x => x.HasOne<Equipo>()
+                    "jugador_pais",
+                    x => x.HasOne<Pais>()
                         .WithMany()
-                        .HasForeignKey("equipo_id"),
+                        .HasForeignKey("pais_id"),
                     x => x.HasOne<Jugador>()
                         .WithMany()
                         .HasForeignKey("jugador_id"),
                     x =>
                     {
-                        x.ToTable("equipo_jugador");
-                        x.HasKey("equipo_id", "jugador_id");
+                        x.ToTable("jugador_pais");
+                        x.HasKey("pais_id", "jugador_id");
                     });
+        });
+
+        // PAIS
+        modelBuilder.Entity<Pais>(entity =>
+        {
+            entity.ToTable("pais");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id)
+                .HasColumnName("id");
+
+            entity.Property(x => x.Nombre)
+                .HasColumnName("nombre");
+        });
+
+        // JUGADOR_EQUIPO (equipo del jugador + temporada de inicio y fin)
+        modelBuilder.Entity<JugadorEquipo>(entity =>
+        {
+            entity.ToTable("jugador_equipo");
+
+            entity.HasKey(x => new { x.JugadorId, x.EquipoId, x.TemporadaInicio });
+
+            entity.Property(x => x.JugadorId)
+                .HasColumnName("jugador_id");
+
+            entity.Property(x => x.EquipoId)
+                .HasColumnName("equipo_id");
+
+            entity.Property(x => x.TemporadaInicio)
+                .HasColumnName("temporada_inicio")
+                .HasMaxLength(50);
+
+            entity.Property(x => x.TemporadaFin)
+                .HasColumnName("temporada_fin")
+                .HasMaxLength(50);
+
+            entity.HasOne(x => x.Jugador)
+                .WithMany(x => x.Equipos)
+                .HasForeignKey(x => x.JugadorId);
+
+            entity.HasOne(x => x.Equipo)
+                .WithMany(x => x.JugadorEquipos)
+                .HasForeignKey(x => x.EquipoId);
+        });
+
+        // JUGADOR_ANIO_INTERNACIONAL
+        modelBuilder.Entity<JugadorAnioInternacional>(entity =>
+        {
+            entity.ToTable("jugador_anio_internacional");
+
+            entity.HasKey(x => new { x.JugadorId, x.Anio });
+
+            entity.Property(x => x.JugadorId)
+                .HasColumnName("jugador_id");
+
+            entity.Property(x => x.Anio)
+                .HasColumnName("anio");
+
+            entity.HasOne(x => x.Jugador)
+                .WithMany(x => x.AniosInternacional)
+                .HasForeignKey(x => x.JugadorId);
         });
 
         // EDICION

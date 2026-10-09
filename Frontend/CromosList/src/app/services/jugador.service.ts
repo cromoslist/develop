@@ -2,11 +2,22 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+// Etapa de un jugador en un equipo (con temporada de inicio y de fin).
+export interface EquipoDeJugador {
+  id: number;
+  nombre: string;
+  temporadaInicio: string;
+  temporadaFin: string;
+}
+
 export interface Jugador {
   id: number;
   nombre: string;
   nombreCompleto: string;
-  equipos: { id: number; nombre: string }[];
+  internacional: boolean;
+  aniosInternacional: number[];
+  equipos: EquipoDeJugador[];
+  paises: { id: number; nombre: string }[];
 }
 
 // Respuesta de /api/Equipos/{id}/Jugadores: projection reduced.
@@ -16,10 +27,19 @@ export interface JugadorEquipo {
   nombreCompleto: string;
 }
 
+export interface JugadorEquipoPayload {
+  equipoId: number;
+  temporadaInicio: string;
+  temporadaFin: string;
+}
+
 export interface JugadorPayload {
   nombre: string;
   nombreCompleto?: string;
-  equipos: number[];
+  equipos: JugadorEquipoPayload[];
+  internacional: boolean;
+  aniosInternacional: number[];
+  paises: number[];
 }
 
 export interface JugadorCromo {

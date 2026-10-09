@@ -8,7 +8,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { normalizarTexto } from '../../shared/texto.util';
 import { EquipoService } from '../../services/equipo.service';
-import { Jugador, JugadorService } from '../../services/jugador.service';
+import { Jugador, EquipoDeJugador, JugadorService } from '../../services/jugador.service';
 import { JugadorEditarComponent } from '../jugadores/jugador-editar';
 
 @Component({
@@ -28,9 +28,10 @@ import { JugadorEditarComponent } from '../jugadores/jugador-editar';
 export class EquipoJugadoresComponent implements OnInit {
 
   jugadores: Jugador[] = [];
-  columnas = ['nombre', 'nombreCompleto', 'equipos', 'acciones'];
+  columnas = ['nombre', 'nombreCompleto', 'equipos', 'temporadas', 'acciones'];
 
   busqueda = new FormControl('');
+  temporadaFiltro = new FormControl('', { nonNullable: true });
 
   equipoNombre = '';
 
@@ -101,22 +102,53 @@ export class EquipoJugadoresComponent implements OnInit {
   get jugadoresVisibles(): Jugador[] {
     const filtro = this.filtro;
 
-    if (!filtro) {
-      return this.jugadores;
-    }
+    return this.jugadores.filter(j => {
+      const coincideTexto =
+        !filtro ||
+        normalizarTexto(j.nombre).includes(filtro) ||
+        normalizarTexto(j.nombreCompleto).includes(filtro);
 
-    return this.jugadores.filter(j =>
-      normalizarTexto(j.nombre).includes(filtro) ||
-      normalizarTexto(j.nombreCompleto).includes(filtro)
-    );
+      return coincideTexto && this.cumpleTemporada(j);
+    });
   }
 
   get hayFiltro(): boolean {
-    return this.filtro.length > 0;
+    return this.filtro.length > 0 || !!this.temporadaFiltro.value;
   }
 
   get sinResultados(): boolean {
     return !this.cargando && !this.error && this.jugadoresVisibles.length === 0;
+  }
+
+  get temporadasDisponibles(): string[] {
+    const valores = new Set<string>();
+
+    for (const jugador of this.jugadores) {
+      for (const rango of this.rangosDeJugador(jugador)) {
+        const inicio = this.anioDe(rango.temporadaInicio);
+        const fin = this.anioDe(rango.temporadaFin) ?? inicio;
+
+        if (inicio !== null && fin !== null && fin >= inicio) {
+          for (let anio = inicio; anio <= fin; anio++) {
+            valores.add(this.etiquetaTemporada(anio));
+          }
+        } else {
+          if (rango.temporadaInicio) {
+            valores.add(rango.temporadaInicio);
+          }
+
+          if (rango.temporadaFin) {
+            valores.add(rango.temporadaFin);
+          }
+        }
+      }
+    }
+
+    return [...valores].sort((a, b) => {
+      const anioA = this.anioDe(a) ?? 0;
+      const anioB = this.anioDe(b) ?? 0;
+      return anioA - anioB || a.localeCompare(b);
+    });
   }
 
   limpiarBusqueda(): void {
@@ -125,6 +157,64 @@ export class EquipoJugadoresComponent implements OnInit {
 
   equiposDe(jugador: Jugador): string {
     return jugador.equipos.map(e => e.nombre).join(', ');
+  }
+
+  temporadasDe(jugador: Jugador): string {
+    return this.rangosDeJugador(jugador)
+      .map(rango => {
+        const inicio = rango.temporadaInicio || '?';
+        return rango.temporadaFin
+          ? `${inicio} - ${rango.temporadaFin}`
+          : `${inicio} - actualidad`;
+      })
+      .join(', ');
+  }
+
+  aniosInternacional(jugador: Jugador): string {
+    return (jugador.aniosInternacional ?? []).join(', ');
+  }
+
+  private rangosDeJugador(jugador: Jugador): EquipoDeJugador[] {
+    return jugador.equipos.filter(e => e.id === this.equipoId);
+  }
+
+  private cumpleTemporada(jugador: Jugador): boolean {
+    const seleccion = this.temporadaFiltro.value;
+
+    if (!seleccion) {
+      return true;
+    }
+
+    return this.rangosDeJugador(jugador).some(rango => this.cumpleRango(rango, seleccion));
+  }
+
+  private cumpleRango(rango: EquipoDeJugador, seleccion: string): boolean {
+    const objetivo = this.anioDe(seleccion);
+    const inicio = this.anioDe(rango.temporadaInicio);
+
+    if (objetivo === null || inicio === null) {
+      return rango.temporadaInicio === seleccion || rango.temporadaFin === seleccion;
+    }
+
+    if (objetivo < inicio) {
+      return false;
+    }
+
+    if (!rango.temporadaFin) {
+      return true;
+    }
+
+    const fin = this.anioDe(rango.temporadaFin);
+    return fin === null ? rango.temporadaFin === seleccion : objetivo <= fin;
+  }
+
+  private anioDe(temporada: string): number | null {
+    const coincidencia = /(\d{4})/.exec(temporada ?? '');
+    return coincidencia ? Number(coincidencia[1]) : null;
+  }
+
+  private etiquetaTemporada(anio: number): string {
+    return `${anio}/${anio + 1}`;
   }
 
   editarJugador(jugador: Jugador): void {

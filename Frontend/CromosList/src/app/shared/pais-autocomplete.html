@@ -1,0 +1,53 @@
+<div class="campo-paises" [class.invalido]="muestraError">
+
+  <mat-chip-set class="chips" *ngIf="seleccion.length > 0">
+    <mat-chip-row
+      *ngFor="let pais of seleccion"
+      [removable]="true"
+      (removed)="quitar(pais)">
+
+      {{ pais.nombre }}
+
+      <button
+        matChipRemove
+        type="button"
+        [attr.aria-label]="'Quitar ' + pais.nombre">
+        <mat-icon>cancel</mat-icon>
+      </button>
+
+    </mat-chip-row>
+  </mat-chip-set>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>{{ label }}</mat-label>
+
+    <input
+      matInput
+      type="text"
+      [formControl]="busqueda"
+      [matAutocomplete]="autoPaises"
+      [placeholder]="placeholder"
+      (blur)="marcarTocado()">
+
+    <mat-progress-spinner matSuffix *ngIf="cargando" diameter="18"></mat-progress-spinner>
+    <mat-icon matSuffix *ngIf="!cargando">public</mat-icon>
+
+    <mat-autocomplete #autoPaises (optionSelected)="onOptionSelected($event.option.value)">
+      <mat-option *ngFor="let pais of filtrados$ | async" [value]="pais">
+        {{ pais.nombre }}
+      </mat-option>
+
+      <mat-option *ngIf="puedeCrear" [value]="opcionCrear" class="opcion-crear">
+        <mat-icon>add</mat-icon>
+        Crear «{{ busqueda.value }}»
+        <mat-progress-spinner *ngIf="creando" diameter="16"></mat-progress-spinner>
+      </mat-option>
+    </mat-autocomplete>
+  </mat-form-field>
+
+  <p class="error-campo" *ngIf="muestraError">
+    <mat-icon>error_outline</mat-icon>
+    {{ errorCarga || errorCreacion || errorText }}
+  </p>
+
+</div>

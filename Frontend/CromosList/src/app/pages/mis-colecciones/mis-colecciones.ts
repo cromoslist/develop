@@ -13,6 +13,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { AlbumService, Album } from '../../services/album.service';
 import { UsuarioAlbumService, ColeccionSuscripcion } from '../../services/usuario-album.service';
 import { JugadorService, Jugador } from '../../services/jugador.service';
+import { EquipoService, Equipo } from '../../services/equipo.service';
 import { AuthService } from '../../services/auth.service';
 
 export interface ColeccionItem {
@@ -55,6 +56,11 @@ export class MisColeccionesComponent implements OnInit {
   jugadores: Jugador[] = [];
   jugadorControl = new FormControl<string | Jugador>('');
   jugadoresFiltrados: Jugador[] = [];
+
+  equipos: Equipo[] = [];
+  equipoControl = new FormControl<string | Equipo>('');
+  equiposFiltrados: Equipo[] = [];
+
   anadiendo = false;
   errorPersonalizado = '';
 
@@ -64,6 +70,7 @@ export class MisColeccionesComponent implements OnInit {
     private albumService: AlbumService,
     private usuarioAlbumService: UsuarioAlbumService,
     private jugadorService: JugadorService,
+    private equipoService: EquipoService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -77,7 +84,9 @@ export class MisColeccionesComponent implements OnInit {
     }
     this.cargar();
     this.cargarJugadores();
+    this.cargarEquipos();
     this.jugadorControl.valueChanges.subscribe(value => this.filtrarJugadores(value));
+    this.equipoControl.valueChanges.subscribe(value => this.filtrarEquipos(value));
   }
 
   get tieneSuscripciones(): boolean {
@@ -92,8 +101,16 @@ export class MisColeccionesComponent implements OnInit {
     return jugador.id;
   }
 
+  trackEquipo(_: number, equipo: Equipo): number {
+    return equipo.id;
+  }
+
   displayJugador(jugador?: Jugador | null): string {
     return jugador ? jugador.nombre : '';
+  }
+
+  displayEquipo(equipo?: Equipo | null): string {
+    return equipo ? equipo.nombre : '';
   }
 
   private filtrarJugadores(valor: string | Jugador | null): void {
@@ -101,6 +118,14 @@ export class MisColeccionesComponent implements OnInit {
     this.jugadoresFiltrados = texto
       ? this.jugadores.filter(j => (j.nombre || '').toLowerCase().includes(texto))
       : this.jugadores.slice(0, 50);
+    this.cdr.detectChanges();
+  }
+
+  private filtrarEquipos(valor: string | Equipo | null): void {
+    const texto = typeof valor === 'string' ? (valor || '').trim().toLowerCase() : '';
+    this.equiposFiltrados = texto
+      ? this.equipos.filter(e => (e.nombre || '').toLowerCase().includes(texto))
+      : this.equipos.slice(0, 50);
     this.cdr.detectChanges();
   }
 
@@ -133,6 +158,35 @@ export class MisColeccionesComponent implements OnInit {
     });
   }
 
+  anadirEquipo(): void {
+    if (this.anadiendo) return;
+
+    const valor = this.equipoControl.value;
+    const equipo = typeof valor === 'object' && valor ? valor : null;
+
+    if (!equipo) {
+      this.errorPersonalizado = 'Selecciona un equipo de la lista.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.errorPersonalizado = '';
+    this.anadiendo = true;
+
+    this.equipoService.crearAlbumPersonalizado(equipo.id).subscribe({
+      next: () => {
+        this.anadiendo = false;
+        this.equipoControl.reset();
+        this.cargar();
+      },
+      error: () => {
+        this.anadiendo = false;
+        this.errorPersonalizado = 'No se ha podido crear el álbum del equipo.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   private cargarJugadores(): void {
     this.jugadorService.getJugadores().subscribe({
       next: data => {
@@ -142,6 +196,20 @@ export class MisColeccionesComponent implements OnInit {
       },
       error: () => {
         this.errorPersonalizado = 'No se han podido cargar los jugadores.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private cargarEquipos(): void {
+    this.equipoService.getEquipos().subscribe({
+      next: data => {
+        this.equipos = data;
+        this.equiposFiltrados = data.slice(0, 50);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.errorPersonalizado = 'No se han podido cargar los equipos.';
         this.cdr.detectChanges();
       }
     });

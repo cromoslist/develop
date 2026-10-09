@@ -1,0 +1,45 @@
+<div class="campo-anios">
+
+  <mat-chip-set class="chips" *ngIf="anios.length > 0">
+    <mat-chip-row
+      *ngFor="let anio of anios"
+      [removable]="!deshabilitado"
+      (removed)="quitar(anio)">
+
+      {{ anio }}
+
+      <button
+        matChipRemove
+        type="button"
+        *ngIf="!deshabilitado"
+        [attr.aria-label]="'Quitar ' + anio">
+        <mat-icon>cancel</mat-icon>
+      </button>
+
+    </mat-chip-row>
+  </mat-chip-set>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>{{ label }}</mat-label>
+
+    <input
+      matInput
+      type="number"
+      [formControl]="entrada"
+      [placeholder]="placeholder"
+      (keydown.enter)="anadir(); $event.preventDefault()">
+
+    <button
+      mat-icon-button
+      matSuffix
+      type="button"
+      (click)="anadir()"
+      [disabled]="deshabilitado"
+      aria-label="Añadir año">
+
+      <mat-icon>add</mat-icon>
+
+    </button>
+  </mat-form-field>
+
+</div>

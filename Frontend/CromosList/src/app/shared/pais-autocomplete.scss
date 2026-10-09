@@ -1,4 +1,4 @@
-.campo-equipos {
+.campo-paises {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -12,6 +12,18 @@
 
 .chips mat-chip-row {
   margin: 0;
+}
+
+.opcion-crear {
+  color: #3f51b5;
+}
+
+.opcion-crear mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 .error-campo {

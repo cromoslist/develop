@@ -1,0 +1,75 @@
+.campo-equipos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.etapas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.etapa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.etapa-nombre {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 140px;
+  min-width: 100px;
+  font-weight: 500;
+}
+
+.etapa-nombre mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #666;
+}
+
+.etapa .temporada {
+  flex: 1 1 0;
+  min-width: 120px;
+}
+
+.etapa .quitar {
+  flex: 0 0 auto;
+  color: #f44336;
+}
+
+.opcion-crear {
+  color: #3f51b5;
+}
+
+.opcion-crear mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.error-campo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #f44336;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.error-campo mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.invalido mat-form-field {
+  --mdc-outlined-text-field-outline-color: #f44336;
+}

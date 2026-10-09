@@ -1,5 +1,7 @@
-﻿using CromosList.Data;
+﻿using System.Security.Claims;
+using CromosList.Data;
 using CromosList.Models;
+using CromosList.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +14,12 @@ namespace CromosList.Controllers;
 public class EquiposController : ControllerBase
 {
     private readonly CromosListDbContext _context;
+    private readonly AlbumPersonalizadoService _albumPersonalizado;
 
-    public EquiposController(CromosListDbContext context)
+    public EquiposController(CromosListDbContext context, AlbumPersonalizadoService albumPersonalizado)
     {
         _context = context;
+        _albumPersonalizado = albumPersonalizado;
     }
 
     [HttpGet]
@@ -72,7 +76,7 @@ public class EquiposController : ControllerBase
 
         var jugadores = await _context.Jugadores
             .AsNoTracking()
-            .Where(j => j.Equipos.Any(e => e.Id == id))
+            .Where(j => j.Equipos.Any(je => je.EquipoId == id))
             .Select(j => new
             {
                 j.Id,
@@ -83,5 +87,42 @@ public class EquiposController : ControllerBase
             .ToListAsync();
 
         return Ok(jugadores);
+    }
+
+    // Crea un álbum nuevo e independiente con todos los cromos del equipo
+    // y apunta al usuario autenticado a esa colección.
+    [HttpPost("{id:long}/album-personalizado")]
+    public async Task<IActionResult> CrearAlbumPersonalizado(long id)
+    {
+        var usuarioId = ObtenerMiId();
+        if (usuarioId == 0)
+            return Unauthorized();
+
+        var equipo = await _context.Equipos
+            .AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.Id, e.Nombre })
+            .FirstOrDefaultAsync();
+
+        if (equipo is null)
+            return NotFound("El equipo no existe.");
+
+        var nombreAlbum = $"Álbum de {equipo.Nombre}";
+
+        var (albumId, error) = await _albumPersonalizado.CrearAsync(
+            usuarioId, nombreAlbum, "equipo", c => c.EquipoId == id);
+
+        if (error is not null)
+            return BadRequest(error);
+
+        return Ok(new { albumId, nombre = nombreAlbum });
+    }
+
+    private long ObtenerMiId()
+    {
+        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst("sub")?.Value;
+
+        return long.TryParse(sub!, out var id) ? id : 0;
     }
 }

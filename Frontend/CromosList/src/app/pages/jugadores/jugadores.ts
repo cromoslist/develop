@@ -1,8 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
-import { EquipoAutocompleteComponent } from '../../shared/equipo-autocomplete';
+import { EquiposTemporadasEditorComponent } from '../../shared/equipos-temporadas-editor';
+import { PaisAutocompleteComponent } from '../../shared/pais-autocomplete';
+import { AniosEditorComponent } from '../../shared/anios-editor';
 import { JugadorService, Jugador } from '../../services/jugador.service';
 
 @Component({
@@ -10,7 +13,10 @@ import { JugadorService, Jugador } from '../../services/jugador.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    EquipoAutocompleteComponent,
+    MatCheckboxModule,
+    EquiposTemporadasEditorComponent,
+    PaisAutocompleteComponent,
+    AniosEditorComponent,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './jugadores.html',
@@ -55,8 +61,31 @@ export class JugadoresComponent implements OnInit {
       equipos: [
         [],
         [Validators.required]
-      ]
+      ],
+      paises: [
+        [],
+        [Validators.required]
+      ],
+      internacional: [false],
+      aniosInternacional: [[]]
     });
+
+    this.jugadorForm.get('internacional')?.valueChanges.subscribe(valor => {
+      const anios = this.jugadorForm.get('aniosInternacional');
+
+      if (valor) {
+        anios?.setValidators([Validators.required]);
+      } else {
+        anios?.setValue([]);
+        anios?.clearValidators();
+      }
+
+      anios?.updateValueAndValidity();
+    });
+  }
+
+  get esInternacional(): boolean {
+    return !!this.jugadorForm?.get('internacional')?.value;
   }
 
   private cargarJugadores(): void {
@@ -81,7 +110,14 @@ export class JugadoresComponent implements OnInit {
     this.jugadorForm.patchValue({
       nombre: jugador.nombre,
       nombreCompleto: jugador.nombreCompleto,
-      equipos: jugador.equipos.map(e => e.id)
+      equipos: jugador.equipos.map(e => ({
+        equipoId: e.id,
+        temporadaInicio: e.temporadaInicio,
+        temporadaFin: e.temporadaFin
+      })),
+      paises: (jugador.paises ?? []).map(p => p.id),
+      internacional: jugador.internacional ?? false,
+      aniosInternacional: [...(jugador.aniosInternacional ?? [])]
     });
     this.mensaje = '';
     this.error = '';
@@ -97,10 +133,16 @@ export class JugadoresComponent implements OnInit {
     this.mensaje = '';
     this.error = '';
 
+    const valor = this.jugadorForm.getRawValue();
+    const internacional = !!valor.internacional;
+
     const payload = {
-      nombre: this.jugadorForm.get('nombre')?.value,
-      nombreCompleto: this.jugadorForm.get('nombreCompleto')?.value,
-      equipos: this.jugadorForm.get('equipos')?.value
+      nombre: valor.nombre,
+      nombreCompleto: valor.nombreCompleto,
+      equipos: valor.equipos ?? [],
+      paises: valor.paises ?? [],
+      internacional,
+      aniosInternacional: internacional ? (valor.aniosInternacional ?? []) : []
     };
 
     if (this.esModoEdicion) {
@@ -163,7 +205,10 @@ export class JugadoresComponent implements OnInit {
     this.jugadorForm.reset({
       nombre: '',
       nombreCompleto: '',
-      equipos: []
+      equipos: [],
+      paises: [],
+      internacional: false,
+      aniosInternacional: []
     });
     this.mensaje = '';
     this.error = '';

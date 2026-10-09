@@ -1,0 +1,15 @@
+.campo-anios {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips mat-chip-row {
+  margin: 0;
+}

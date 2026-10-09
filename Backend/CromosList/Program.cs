@@ -1,5 +1,6 @@
 using System.Text;
 using CromosList.Data;
+using CromosList.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -50,6 +51,8 @@ Console.WriteLine($"ConnectionString: host={new Npgsql.NpgsqlConnectionStringBui
 
 builder.Services.AddDbContext<CromosListDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
+
+builder.Services.AddScoped<AlbumPersonalizadoService>();
 
 var app = builder.Build();
 app.UseCors("Angular");

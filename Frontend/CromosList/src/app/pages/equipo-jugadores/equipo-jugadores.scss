@@ -69,6 +69,12 @@ mat-card-content {
   font-size: 14px;
 }
 
+.temporadas-col {
+  color: #6b7280;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
 .filtros {
   display: flex;
   gap: 12px;
@@ -78,6 +84,19 @@ mat-card-content {
 .buscador {
   flex: 1;
   max-width: 380px;
+}
+
+.filtro-temporada {
+  width: 200px;
+}
+
+.icono-internacional {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-left: 6px;
+  color: #5c6bc0;
 }
 
 .resultado-busqueda {

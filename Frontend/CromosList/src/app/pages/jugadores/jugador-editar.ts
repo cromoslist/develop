@@ -3,8 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
-import { EquipoAutocompleteComponent } from '../../shared/equipo-autocomplete';
+import { EquiposTemporadasEditorComponent } from '../../shared/equipos-temporadas-editor';
+import { PaisAutocompleteComponent } from '../../shared/pais-autocomplete';
+import { AniosEditorComponent } from '../../shared/anios-editor';
 import { Jugador, JugadorService } from '../../services/jugador.service';
 
 export interface EditarJugadorData {
@@ -18,7 +21,10 @@ export interface EditarJugadorData {
     ReactiveFormsModule,
     MatDialogModule,
     MatProgressSpinnerModule,
-    EquipoAutocompleteComponent,
+    MatCheckboxModule,
+    EquiposTemporadasEditorComponent,
+    PaisAutocompleteComponent,
+    AniosEditorComponent,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './jugador-editar.html',
@@ -40,6 +46,7 @@ export class JugadorEditarComponent implements OnInit {
 
   ngOnInit(): void {
     const jugador = this.data.jugador;
+    const internacional = jugador.internacional ?? false;
 
     this.jugadorForm = this.fb.group({
       nombre: [
@@ -54,10 +61,40 @@ export class JugadorEditarComponent implements OnInit {
         [Validators.maxLength(150)]
       ],
       equipos: [
-        jugador.equipos.map(e => e.id),
+        jugador.equipos.map(e => ({
+          equipoId: e.id,
+          temporadaInicio: e.temporadaInicio,
+          temporadaFin: e.temporadaFin
+        })),
         [Validators.required]
+      ],
+      paises: [
+        (jugador.paises ?? []).map(p => p.id),
+        [Validators.required]
+      ],
+      internacional: [internacional],
+      aniosInternacional: [
+        [...(jugador.aniosInternacional ?? [])],
+        internacional ? [Validators.required] : []
       ]
     });
+
+    this.jugadorForm.get('internacional')?.valueChanges.subscribe(valor => {
+      const anios = this.jugadorForm.get('aniosInternacional');
+
+      if (valor) {
+        anios?.setValidators([Validators.required]);
+      } else {
+        anios?.setValue([]);
+        anios?.clearValidators();
+      }
+
+      anios?.updateValueAndValidity();
+    });
+  }
+
+  get esInternacional(): boolean {
+    return !!this.jugadorForm?.get('internacional')?.value;
   }
 
   guardar(): void {
@@ -69,11 +106,17 @@ export class JugadorEditarComponent implements OnInit {
     this.cargando = true;
     this.error = '';
 
+    const valor = this.jugadorForm.getRawValue();
+    const internacional = !!valor.internacional;
+
     this.jugadorService
       .editarJugador(this.data.jugador.id, {
-        nombre: this.jugadorForm.get('nombre')?.value,
-        nombreCompleto: this.jugadorForm.get('nombreCompleto')?.value,
-        equipos: this.jugadorForm.get('equipos')?.value
+        nombre: valor.nombre,
+        nombreCompleto: valor.nombreCompleto,
+        equipos: valor.equipos ?? [],
+        internacional,
+        aniosInternacional: internacional ? (valor.aniosInternacional ?? []) : [],
+        paises: valor.paises ?? []
       })
       .subscribe({
         next: () => {
