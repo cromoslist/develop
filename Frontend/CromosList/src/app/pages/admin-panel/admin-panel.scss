@@ -211,6 +211,39 @@ a.stat-card {
   gap: 16px;
 }
 
+.importacion-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.importacion-form button {
+  min-height: 56px;
+}
+
+.importacion-estado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--app-text-muted);
+  margin-top: 8px;
+}
+
+.importacion-mensaje,
+.importacion-error {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.importacion-mensaje {
+  color: var(--app-green);
+}
+
+.importacion-error {
+  color: #c62828;
+}
+
 .busqueda-card,
 .result-card {
   border-radius: 18px;
@@ -336,4 +369,3 @@ a.stat-card {
 .result-meta .sep {
   margin-left: 8px;
 }
-

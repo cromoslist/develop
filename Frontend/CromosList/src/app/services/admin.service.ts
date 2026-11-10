@@ -41,6 +41,14 @@ export interface UsuarioPanel {
   esAdmin: boolean;
 }
 
+export interface ResultadoImportacionPlantilla {
+  jugadoresCreados: number;
+  asociacionesCreadas: number;
+  filasOmitidas: number;
+  temporada: string;
+  equipo: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -101,5 +109,16 @@ export class AdminService {
 
   revocarAdmin(id: number): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/Usuarios/${id}/admin/revocar`, {});
+  }
+
+  importarPlantillaTransfermarkt(datos: {
+    equipoId: number;
+    club: string;
+    temporada?: string;
+  }): Observable<ResultadoImportacionPlantilla> {
+    return this.http.post<ResultadoImportacionPlantilla>(
+      `${this.apiUrl}/admin/transfermarkt/plantilla`,
+      datos
+    );
   }
 }

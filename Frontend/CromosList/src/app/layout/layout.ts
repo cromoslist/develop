@@ -1,5 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MATERIAL_IMPORTS } from '../shared/material.imports';
 import { AuthService } from '../services/auth.service';
 
@@ -17,6 +19,20 @@ import { AuthService } from '../services/auth.service';
 export class Layout {
   auth = inject(AuthService);
   private router = inject(Router);
+  isCompact = signal(false);
+
+  constructor() {
+    inject(BreakpointObserver)
+      .observe('(max-width: 960px)')
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ matches }) => this.isCompact.set(matches));
+  }
+
+  closeOnCompact(sidenav: { close: () => void }): void {
+    if (this.isCompact()) {
+      sidenav.close();
+    }
+  }
 
   logout(): void {
     this.auth.logout();

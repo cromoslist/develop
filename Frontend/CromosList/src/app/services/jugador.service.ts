@@ -25,6 +25,7 @@ export interface JugadorEquipo {
   id: number;
   nombre: string;
   nombreCompleto: string;
+  temporadas: { temporadaInicio: string; temporadaFin: string }[];
 }
 
 export interface JugadorEquipoPayload {

@@ -1,11 +1,12 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ReactiveFormsModule, FormControl } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { AdminService, ResumenPanel, CromoBusqueda, UsuarioPanel } from '../../services/admin.service';
 import { AuthService } from '../../services/auth.service';
+import { Equipo, EquipoService } from '../../services/equipo.service';
 import { of, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
@@ -14,6 +15,7 @@ import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
   imports: [
     CommonModule,
     RouterLink,
+    FormsModule,
     ReactiveFormsModule,
     MatProgressSpinnerModule,
     ...MATERIAL_IMPORTS
@@ -29,6 +31,14 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
 
   usuarios: UsuarioPanel[] = [];
   cargandoUsuarios = false;
+
+  equipos: Equipo[] = [];
+  equipoImportacionId: number | null = null;
+  clubTransfermarkt = '';
+  temporadaTransfermarkt = '';
+  importandoPlantilla = false;
+  mensajeImportacion = '';
+  errorImportacion = '';
 
   busqueda = new FormControl('');
   buscando = false;
@@ -53,6 +63,7 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
 
   constructor(
     private adminService: AdminService,
+    private equipoService: EquipoService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -60,6 +71,16 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.cargarResumen();
     this.cargarUsuarios();
+    this.equipoService.getEquipos().subscribe({
+      next: equipos => {
+        this.equipos = equipos;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.errorImportacion = 'No se pudieron cargar los equipos de CromosList.';
+        this.cdr.detectChanges();
+      }
+    });
 
     this.subBusqueda = this.busqueda.valueChanges.pipe(
       debounceTime(350),
@@ -165,6 +186,44 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
       next: () => this.cargarUsuarios(),
       error: () => {
         this.error = 'No se ha podido revocar el rol de administrador.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  importarPlantilla(): void {
+    const equipoId = this.equipoImportacionId;
+    const club = this.clubTransfermarkt.trim();
+
+    if (!equipoId || !club || this.importandoPlantilla) {
+      this.errorImportacion = 'Selecciona un equipo e indica el ID o enlace del club.';
+      this.mensajeImportacion = '';
+      return;
+    }
+
+    this.importandoPlantilla = true;
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+
+    this.adminService.importarPlantillaTransfermarkt({
+      equipoId,
+      club,
+      temporada: this.temporadaTransfermarkt.trim() || undefined
+    }).subscribe({
+      next: resultado => {
+        this.importandoPlantilla = false;
+        this.mensajeImportacion =
+          `Plantilla ${resultado.equipo} (${resultado.temporada}) importada: ` +
+          `${resultado.jugadoresCreados} jugadores nuevos y ` +
+          `${resultado.asociacionesCreadas} vínculos de equipo creados.` +
+          (resultado.filasOmitidas ? ` ${resultado.filasOmitidas} filas omitidas.` : '');
+        this.cargarResumen();
+        this.cdr.detectChanges();
+      },
+      error: error => {
+        this.importandoPlantilla = false;
+        this.errorImportacion = error.error?.message ??
+          (typeof error.error === 'string' ? error.error : 'No se pudo importar la plantilla.');
         this.cdr.detectChanges();
       }
     });

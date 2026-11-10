@@ -60,6 +60,137 @@ mat-card-content {
   grid-column: 1 / -1;
 }
 
+.csv-import {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--app-border, #dce5e8);
+  border-radius: 14px;
+  background: var(--app-surface, #fff);
+}
+
+.csv-import-header,
+.csv-actions,
+.csv-confirmar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.csv-import-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.csv-import-header p,
+.csv-ayuda,
+.csv-resumen {
+  margin: 6px 0 0;
+  color: var(--app-text-muted, #667085);
+  font-size: 13px;
+}
+
+.csv-import-header code {
+  color: var(--app-primary, #1f6f8b);
+}
+
+.csv-actions {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+.csv-nombre {
+  color: var(--app-text-muted, #667085);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.csv-mensaje,
+.csv-error {
+  margin: 12px 0 0;
+  white-space: pre-line;
+  font-size: 13px;
+}
+
+.csv-mensaje {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2e7d32;
+}
+
+.csv-error,
+.csv-fila-error {
+  color: #c62828;
+}
+
+.csv-sugerencias,
+.csv-jugador-validado {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.csv-sugerencias {
+  color: #8a5a00;
+}
+
+.csv-sugerencias button {
+  color: #8a5a00;
+  border-color: #d8a43b;
+}
+
+.csv-jugador-validado {
+  color: #2e7d32;
+}
+
+.csv-jugador-validado mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.csv-tabla-contenedor {
+  max-width: 100%;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.csv-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.csv-tabla th,
+.csv-tabla td {
+  padding: 8px;
+  border-bottom: 1px solid var(--app-border, #e5e7eb);
+  text-align: left;
+  vertical-align: top;
+}
+
+.csv-tabla th {
+  color: var(--app-primary-dark, #174f64);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.csv-confirmar {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+.csv-confirmar span {
+  color: #c62828;
+  font-size: 13px;
+}
+
 mat-form-field {
   width: 100%;
 }
@@ -107,6 +238,11 @@ mat-card-actions mat-icon {
 
 .cromos-table {
   width: 100%;
+  min-width: 600px;
+}
+
+.tabla-card mat-card-content {
+  overflow-x: auto;
 }
 
 .cromos-table th {

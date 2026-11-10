@@ -1,5 +1,6 @@
 .sidenav-container {
   height: 100vh;
+  height: 100dvh;
 }
 
 mat-sidenav {
@@ -86,6 +87,13 @@ mat-toolbar mat-icon {
   flex: 1;
 }
 
+.toolbar-user-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-badge {
   margin-left: 8px;
   padding: 2px 8px;
@@ -101,5 +109,42 @@ mat-toolbar mat-icon {
 .content {
   padding: 24px;
   min-height: calc(100vh - 64px);
+  min-width: 0;
   background: var(--app-bg);
+}
+
+@media (max-width: 960px) {
+  mat-sidenav {
+    width: min(300px, calc(100vw - 56px));
+  }
+
+  .content {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  mat-toolbar {
+    min-height: 56px;
+    padding-inline: 8px;
+  }
+
+  .toolbar-title {
+    margin-left: 4px;
+    font-size: 18px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .admin-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .toolbar-user-name {
+    display: none;
+  }
 }

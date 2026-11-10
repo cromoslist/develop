@@ -81,7 +81,15 @@ public class EquiposController : ControllerBase
             {
                 j.Id,
                 j.Nombre,
-                j.NombreCompleto
+                j.NombreCompleto,
+                Temporadas = j.Equipos
+                    .Where(je => je.EquipoId == id)
+                    .Select(je => new
+                    {
+                        je.TemporadaInicio,
+                        je.TemporadaFin
+                    })
+                    .ToList()
             })
             .OrderBy(j => j.Nombre)
             .ToListAsync();

@@ -135,6 +135,55 @@
   </section>
 
   <section class="gestion-seccion" *ngIf="resumen">
+    <header class="gestion-header">
+      <div>
+        <h2>Importar plantilla de Transfermarkt</h2>
+        <p>Trae los jugadores de un club y vincúlalos a un equipo de CromosList.</p>
+      </div>
+    </header>
+
+    <mat-card class="busqueda-card">
+      <mat-card-content>
+        <div class="importacion-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Equipo de CromosList</mat-label>
+            <mat-select [(value)]="equipoImportacionId">
+              <mat-option *ngFor="let equipo of equipos" [value]="equipo.id">
+                {{ equipo.nombre }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>ID o enlace del club</mat-label>
+            <input matInput [(ngModel)]="clubTransfermarkt"
+              placeholder="Ej. 583 o enlace de Transfermarkt">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Temporada (opcional)</mat-label>
+            <input matInput [(ngModel)]="temporadaTransfermarkt" placeholder="Ej. 2025 o 2025/26">
+          </mat-form-field>
+
+          <button mat-flat-button color="primary" type="button"
+            (click)="importarPlantilla()"
+            [disabled]="importandoPlantilla || equipos.length === 0">
+            <mat-icon>download</mat-icon>
+            {{ importandoPlantilla ? 'Importando plantilla…' : 'Importar plantilla' }}
+          </button>
+        </div>
+
+        <div class="importacion-estado" *ngIf="importandoPlantilla">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Consultando Transfermarkt; puede tardar un poco.</span>
+        </div>
+        <p class="importacion-mensaje" *ngIf="mensajeImportacion">{{ mensajeImportacion }}</p>
+        <p class="importacion-error" *ngIf="errorImportacion">{{ errorImportacion }}</p>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section class="gestion-seccion" *ngIf="resumen">
 
     <header class="gestion-header">
       <div>

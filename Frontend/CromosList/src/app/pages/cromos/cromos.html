@@ -234,6 +234,123 @@
 
         </div>
 
+        <section class="csv-import">
+          <div class="csv-import-header">
+            <div>
+              <h3>Importar cromos desde CSV</h3>
+              <p>Columnas obligatorias: <code>numero</code>, <code>nombreJugador</code>, <code>equipo</code>, <code>temporada</code>, <code>tipoCromo</code> y <code>edicion</code>. El comentario es opcional.</p>
+              <p>La temporada identifica la etapa del jugador en ese equipo (por ejemplo, <code>2023/2024</code>); equipo, tipo y edición pueden variar por fila.</p>
+            </div>
+            <button mat-button type="button" (click)="descargarPlantillaCsv()">
+              <mat-icon>download</mat-icon>
+              Descargar plantilla
+            </button>
+          </div>
+
+          <p class="csv-ayuda" *ngIf="!contextoCsvCompleto">
+            Selecciona un álbum y espera a que se carguen sus datos antes de cargar el archivo.
+          </p>
+
+          <div class="csv-actions">
+            <input
+              #csvInput
+              type="file"
+              accept=".csv,text/csv"
+              hidden
+              (change)="onCsvSelected($event)">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="csvInput.click()"
+              [disabled]="!contextoCsvCompleto || importandoCsv || cargandoCsv">
+              <mat-icon>upload_file</mat-icon>
+              Seleccionar CSV
+            </button>
+            <span class="csv-nombre" *ngIf="csvArchivo">{{ csvArchivo }}</span>
+          </div>
+
+          <p class="csv-ayuda" *ngIf="cargandoCsv">Leyendo el archivo y buscando jugadores en los equipos indicados…</p>
+
+          <p class="csv-mensaje" *ngIf="csvMensaje">
+            <mat-icon>check_circle</mat-icon>
+            {{ csvMensaje }}
+          </p>
+          <p class="csv-error" *ngIf="csvError">{{ csvError }}</p>
+
+          <ng-container *ngIf="csvFilas.length">
+            <p class="csv-resumen">
+              {{ csvFilas.length }} fila(s). Revisa la vista previa antes de importar.
+              <span *ngIf="csvFilas.length > csvFilasVisibles.length">
+                Se muestran las primeras {{ csvFilasVisibles.length }}.
+              </span>
+            </p>
+
+            <div class="csv-tabla-contenedor">
+              <table class="csv-tabla">
+                <thead>
+                  <tr>
+                    <th>Fila</th>
+                    <th>Número</th>
+                    <th>Jugador</th>
+                    <th>Equipo</th>
+                    <th>Temporada</th>
+                    <th>Tipo</th>
+                    <th>Edición</th>
+                    <th>Comentario</th>
+                    <th>Validación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let fila of csvFilasVisibles">
+                    <td>{{ fila.filaCsv }}</td>
+                    <td>{{ fila.numero || '—' }}</td>
+                    <td>
+                      <div>{{ fila.nombreJugador || '—' }}</div>
+                      <div class="csv-sugerencias" *ngIf="fila.jugadoresSugeridos.length">
+                        <span>¿Coincide con alguno de estos jugadores? Confirma uno:</span>
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          *ngFor="let jugador of fila.jugadoresSugeridos"
+                          (click)="confirmarJugadorCsv(fila, jugador)">
+                          {{ nombreVisibleJugador(jugador) }}
+                        </button>
+                      </div>
+                      <div class="csv-jugador-validado" *ngIf="fila.jugadorNombreValidado">
+                        <mat-icon>check_circle</mat-icon>
+                        {{ fila.jugadorNombreValidado }}
+                      </div>
+                    </td>
+                    <td>{{ fila.equipo || '—' }}</td>
+                    <td>{{ fila.temporada || '—' }}</td>
+                    <td>{{ fila.tipoCromo || '—' }}</td>
+                    <td>{{ fila.edicion || '—' }}</td>
+                    <td>{{ fila.comentario || '—' }}</td>
+                    <td [class.csv-fila-error]="!!fila.error">
+                      {{ fila.error || (fila.jugadoresSugeridos.length ? 'Pendiente de confirmar jugador' : fila.esEscudo && fila.jugadorId === null ? 'Se creará Escudo' : 'Correcta') }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="csv-confirmar">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="importarCsv()"
+                [disabled]="!csvImportable">
+                <mat-icon>cloud_upload</mat-icon>
+                {{ importandoCsv ? 'Importando…' : 'Importar ' + csvFilas.length + ' cromos' }}
+              </button>
+              <span *ngIf="hayErroresCsv">
+                Corrige todas las filas marcadas antes de importar.
+              </span>
+            </div>
+          </ng-container>
+        </section>
+
         <mat-card-actions align="end">
 
           <button

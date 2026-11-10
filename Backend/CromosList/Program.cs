@@ -42,6 +42,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient("TransfermarktScraper", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(90);
+});
 
 var connectionStringRaw = builder.Configuration.GetConnectionString("DefaultConnection");
 var connectionString = NormalizeConnectionString(connectionStringRaw);

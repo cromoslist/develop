@@ -2,8 +2,8 @@
 
   <mat-sidenav
     #sidenav
-    mode="side"
-    opened>
+    [mode]="isCompact() ? 'over' : 'side'"
+    [opened]="!isCompact()">
 
     <div class="logo">
       <mat-icon>style</mat-icon>
@@ -16,7 +16,8 @@
         <a
           mat-list-item
           routerLink="/colecciones"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>collections_bookmark</mat-icon>
           <span matListItemTitle>Mis colecciones</span>
@@ -28,7 +29,8 @@
         <a
           mat-list-item
           routerLink="/panel"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>dashboard</mat-icon>
           <span matListItemTitle>Panel</span>
@@ -40,7 +42,8 @@
         <a
           mat-list-item
           routerLink="/cromos"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>style</mat-icon>
           <span matListItemTitle>Cromos</span>
@@ -50,7 +53,8 @@
         <a
           mat-list-item
           routerLink="/jugadores"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>person</mat-icon>
           <span matListItemTitle>Jugadores</span>
@@ -60,7 +64,8 @@
         <a
           mat-list-item
           routerLink="/equipos"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>groups</mat-icon>
           <span matListItemTitle>Equipos</span>
@@ -70,7 +75,8 @@
         <a
           mat-list-item
           routerLink="/tipos-cromo"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>category</mat-icon>
           <span matListItemTitle>Tipos de cromo</span>
@@ -80,7 +86,8 @@
         <a
           mat-list-item
           routerLink="/albumes"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>album</mat-icon>
           <span matListItemTitle>Álbumes</span>
@@ -90,7 +97,8 @@
         <a
           mat-list-item
           routerLink="/editoriales"
-          routerLinkActive="active">
+          routerLinkActive="active"
+          (click)="closeOnCompact(sidenav)">
 
           <mat-icon matListItemIcon>storefront</mat-icon>
           <span matListItemTitle>Editoriales</span>
@@ -109,6 +117,7 @@
 
       <button
         mat-icon-button
+        aria-label="Abrir o cerrar el menú de navegación"
         (click)="sidenav.toggle()">
 
         <mat-icon>menu</mat-icon>
@@ -122,9 +131,9 @@
       <span class="toolbar-spacer"></span>
 
       @if (auth.user(); as user) {
-        <button mat-button [matMenuTriggerFor]="userMenu">
+        <button mat-button class="toolbar-user" [matMenuTriggerFor]="userMenu">
           <mat-icon>account_circle</mat-icon>
-          {{ user.nombre }}
+          <span class="toolbar-user-name">{{ user.nombre }}</span>
           @if (user.esAdmin) {
             <span class="admin-badge">Admin</span>
           }

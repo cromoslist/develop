@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CromosList.Dtos;
+using CromosList.Models;
 
 namespace CromosList.Controllers;
 
@@ -262,6 +263,251 @@ public class CromoController : ControllerBase
             nameof(GetById),
             new { id = cromo.Id },
             cromo);
+    }
+
+    [HttpPost("importar-lote")]
+    public async Task<IActionResult> ImportarLote(
+        [FromBody] ImportarCromosLoteDto dto,
+        CancellationToken cancellationToken)
+    {
+        var (_, esAdmin) = await MiUsuarioAsync();
+        if (!esAdmin)
+            return Forbid();
+
+        if (dto.Cromos is null || dto.Cromos.Count == 0)
+            return BadRequest(new { message = "El archivo no contiene cromos para importar." });
+
+        if (dto.Cromos.Count > 500)
+            return BadRequest(new { message = "Se pueden importar como máximo 500 cromos por archivo." });
+
+        var albumValido = await _context.Albums
+            .AnyAsync(a => a.Id == dto.AlbumId, cancellationToken);
+        if (!albumValido)
+            return BadRequest(new { message = "El álbum seleccionado no existe." });
+
+        var errores = new List<object>();
+        var filasRepetidas = dto.Cromos
+            .Where(c => !string.IsNullOrWhiteSpace(c.Numero))
+            .GroupBy(c => ClaveCromo(c.EquipoId, c.TipoCromoId, c.EdicionId, c.Numero))
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g)
+            .Select(c => c.FilaCsv)
+            .ToHashSet();
+
+        foreach (var (cromo, indice) in dto.Cromos.Select((c, i) => (c, i)))
+        {
+            if (string.IsNullOrWhiteSpace(cromo.Numero))
+                errores.Add(new { filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2, mensaje = "El número está vacío." });
+            else if (cromo.Numero.Trim().Length > 100)
+                errores.Add(new { filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2, mensaje = "El número supera los 100 caracteres." });
+
+            if (filasRepetidas.Contains(cromo.FilaCsv))
+                errores.Add(new { filaCsv = cromo.FilaCsv, mensaje = $"El número «{cromo.Numero.Trim()}» está repetido para el mismo equipo, tipo y edición en el CSV." });
+
+            if (cromo.EquipoId <= 0 || cromo.TipoCromoId <= 0 || cromo.EdicionId <= 0)
+                errores.Add(new { filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2, mensaje = "Equipo, tipo de cromo o edición no válidos." });
+
+            if ((!cromo.JugadorId.HasValue || cromo.JugadorId.Value <= 0) && !cromo.EsEscudo)
+                errores.Add(new { filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2, mensaje = "El jugador no es válido." });
+        }
+
+        if (errores.Count > 0)
+            return BadRequest(new { message = "Corrige los errores del CSV antes de importar.", errores });
+
+        var equiposIds = dto.Cromos.Select(c => c.EquipoId).Distinct().ToList();
+        var tiposIds = dto.Cromos.Select(c => c.TipoCromoId).Distinct().ToList();
+        var edicionesIds = dto.Cromos.Select(c => c.EdicionId).Distinct().ToList();
+        var equiposDelAlbum = await _context.AlbumEquipos
+            .Where(ae => ae.AlbumId == dto.AlbumId && equiposIds.Contains(ae.EquipoId))
+            .Select(ae => ae.EquipoId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        var tiposDelAlbum = await _context.AlbumTiposCromo
+            .Where(at => at.AlbumId == dto.AlbumId && tiposIds.Contains(at.TipoCromoId))
+            .Select(at => at.TipoCromoId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        var edicionesValidas = await _context.Ediciones
+            .Where(e => edicionesIds.Contains(e.Id))
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
+        var equiposValidos = equiposDelAlbum.ToHashSet();
+        var tiposValidos = tiposDelAlbum.ToHashSet();
+        var edicionesValidasSet = edicionesValidas.ToHashSet();
+
+        foreach (var (cromo, indice) in dto.Cromos.Select((c, i) => (c, i)))
+        {
+            var fila = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2;
+            if (!equiposValidos.Contains(cromo.EquipoId))
+                errores.Add(new { filaCsv = fila, mensaje = "El equipo no pertenece al álbum seleccionado." });
+            if (!tiposValidos.Contains(cromo.TipoCromoId))
+                errores.Add(new { filaCsv = fila, mensaje = "El tipo de cromo no pertenece al álbum seleccionado." });
+            if (!edicionesValidasSet.Contains(cromo.EdicionId))
+                errores.Add(new { filaCsv = fila, mensaje = "La edición seleccionada no existe." });
+        }
+
+        if (errores.Count > 0)
+            return BadRequest(new { message = "Corrige los errores del CSV antes de importar.", errores });
+
+        var escudosSolicitados = dto.Cromos.Where(c => c.EsEscudo).ToList();
+        var jugadoresEnEquipos = await _context.JugadorEquipos
+            .Where(je => equiposIds.Contains(je.EquipoId))
+            .Select(je => new
+            {
+                je.EquipoId,
+                je.JugadorId,
+                je.Jugador.Nombre,
+                je.Jugador.NombreCompleto
+            })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var escudosNuevosNecesarios = new HashSet<long>();
+        foreach (var (cromo, indice) in escudosSolicitados.Select((c, i) => (c, i)))
+        {
+            var candidatos = jugadoresEnEquipos
+                .Where(j => j.EquipoId == cromo.EquipoId
+                    && (j.Nombre.Contains("escudo", StringComparison.OrdinalIgnoreCase)
+                        || j.NombreCompleto.Contains("escudo", StringComparison.OrdinalIgnoreCase)))
+                .Select(j => j.JugadorId)
+                .Distinct()
+                .ToList();
+
+            if (candidatos.Count > 1)
+            {
+                errores.Add(new
+                {
+                    filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2,
+                    mensaje = "Hay más de un registro especial de Escudo asociado a este equipo."
+                });
+            }
+            else if (candidatos.Count == 1)
+            {
+                cromo.JugadorId = candidatos[0];
+            }
+            else
+            {
+                escudosNuevosNecesarios.Add(cromo.EquipoId);
+            }
+        }
+
+        if (errores.Count > 0)
+            return BadRequest(new { message = "Corrige los errores del CSV antes de importar.", errores });
+
+        var jugadorIds = dto.Cromos
+            .Where(c => !c.EsEscudo)
+            .Select(c => c.JugadorId!.Value)
+            .Distinct()
+            .ToList();
+        var jugadoresDelEquipo = await _context.JugadorEquipos
+            .Where(je => equiposIds.Contains(je.EquipoId) && jugadorIds.Contains(je.JugadorId))
+            .Select(je => new { je.EquipoId, je.JugadorId })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        var jugadoresValidos = jugadoresDelEquipo
+            .Select(je => $"{je.EquipoId}:{je.JugadorId}")
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (cromo, indice) in dto.Cromos.Select((c, i) => (c, i)))
+        {
+            if (!cromo.EsEscudo && !jugadoresValidos.Contains($"{cromo.EquipoId}:{cromo.JugadorId!.Value}"))
+                errores.Add(new
+                {
+                    filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2,
+                    mensaje = "El jugador no pertenece al equipo indicado en esta fila."
+                });
+        }
+
+        if (errores.Count > 0)
+            return BadRequest(new { message = "Corrige los errores del CSV antes de importar.", errores });
+
+        var cromosExistentes = await _context.Cromos
+            .AsNoTracking()
+            .Where(c => c.AlbumId == dto.AlbumId
+                && equiposIds.Contains(c.EquipoId)
+                && tiposIds.Contains(c.TipoCromoId)
+                && edicionesIds.Contains(c.EdicionId))
+            .Select(c => new { c.EquipoId, c.TipoCromoId, c.EdicionId, c.Numero })
+            .ToListAsync(cancellationToken);
+        var clavesExistentes = cromosExistentes
+            .Select(c => ClaveCromo(c.EquipoId, c.TipoCromoId, c.EdicionId, c.Numero))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (cromo, indice) in dto.Cromos.Select((c, i) => (c, i)))
+        {
+            if (clavesExistentes.Contains(ClaveCromo(cromo.EquipoId, cromo.TipoCromoId, cromo.EdicionId, cromo.Numero)))
+                errores.Add(new
+                {
+                    filaCsv = cromo.FilaCsv > 0 ? cromo.FilaCsv : indice + 2,
+                    mensaje = $"El número «{cromo.Numero.Trim()}» ya existe en este álbum, equipo, tipo y edición."
+                });
+        }
+
+        if (errores.Count > 0)
+            return BadRequest(new { message = "Corrige los errores del CSV antes de importar.", errores });
+
+        var escudosCreados = new Dictionary<long, Jugador>();
+        if (escudosNuevosNecesarios.Count > 0)
+        {
+            var equipos = await _context.Equipos
+                .Where(e => escudosNuevosNecesarios.Contains(e.Id))
+                .Select(e => new { e.Id, e.Nombre })
+                .ToListAsync(cancellationToken);
+
+            foreach (var equipo in equipos)
+            {
+                var nombreEscudo = $"Escudo {equipo.Nombre}";
+                var jugador = new Jugador
+                {
+                    Nombre = nombreEscudo,
+                    NombreCompleto = nombreEscudo,
+                    Internacional = false
+                };
+                jugador.Equipos.Add(new JugadorEquipo
+                {
+                    Jugador = jugador,
+                    EquipoId = equipo.Id,
+                    TemporadaInicio = "Actualidad",
+                    TemporadaFin = string.Empty
+                });
+
+                _context.Jugadores.Add(jugador);
+                escudosCreados[equipo.Id] = jugador;
+            }
+        }
+
+        var cromos = new List<Models.Cromo>();
+        foreach (var fila in dto.Cromos)
+        {
+            var cromo = new Models.Cromo
+            {
+                Numero = fila.Numero.Trim(),
+                AlbumId = dto.AlbumId,
+                EquipoId = fila.EquipoId,
+                TipoCromoId = fila.TipoCromoId,
+                EdicionId = fila.EdicionId,
+                JugadorId = fila.JugadorId.GetValueOrDefault(),
+                Comentario = string.IsNullOrWhiteSpace(fila.Comentario) ? null : fila.Comentario.Trim(),
+                PublicacionId = null,
+                ColeccionId = null
+            };
+
+            if (fila.EsEscudo && fila.JugadorId.GetValueOrDefault() <= 0
+                && escudosCreados.TryGetValue(fila.EquipoId, out var escudo))
+                cromo.Jugador = escudo;
+
+            cromos.Add(cromo);
+        }
+
+        _context.Cromos.AddRange(cromos);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { creados = cromos.Count, escudosCreados = escudosCreados.Count });
+    }
+
+    private static string ClaveCromo(long equipoId, long tipoCromoId, long edicionId, string numero)
+    {
+        return $"{equipoId}:{tipoCromoId}:{edicionId}:{numero.Trim().ToUpperInvariant()}";
     }
 
     [HttpPut("{id:long}")]
