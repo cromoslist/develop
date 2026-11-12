@@ -31,4 +31,8 @@ export class UsuarioCromoService {
   desmarcarCromo(usuarioId: number, cromoId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${usuarioId}/${cromoId}`);
   }
+
+  importarFaltas(albumId: number, cromosFaltantesIds: number[]): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/album/${albumId}/faltas`, { cromosFaltantesIds });
+  }
 }

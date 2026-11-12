@@ -55,6 +55,108 @@
       </p>
     </div>
 
+    <section class="importar-faltas-card" *ngIf="progreso && suscrito" aria-labelledby="importar-faltas-titulo">
+      <div class="importar-faltas-cabecera">
+        <span class="importar-faltas-icono"><mat-icon>document_scanner</mat-icon></span>
+        <div>
+          <h2 id="importar-faltas-titulo">Importar faltas desde una imagen</h2>
+          <p>Sube una captura de tu lista. Revisaremos las coincidencias antes de cambiar la colección.</p>
+        </div>
+      </div>
+
+      <input
+        #imagenFaltasInput
+        class="imagen-faltas-input"
+        type="file"
+        accept="image/*"
+        (change)="seleccionarImagenFaltas($event)"
+        aria-label="Seleccionar una imagen con la lista de faltas">
+
+      <div class="importar-faltas-acciones">
+        <button mat-stroked-button type="button" (click)="imagenFaltasInput.click()" [disabled]="leyendoImagen || importandoFaltas">
+          <mat-icon>upload_file</mat-icon>
+          {{ imagenFaltas ? 'Cambiar imagen' : 'Seleccionar imagen' }}
+        </button>
+        <span class="imagen-faltas-nombre" *ngIf="imagenFaltas">{{ imagenFaltas.name }}</span>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          *ngIf="imagenFaltas"
+          [disabled]="leyendoImagen || importandoFaltas"
+          (click)="leerImagenFaltas()">
+          <mat-icon>document_scanner</mat-icon>
+          {{ leyendoImagen ? 'Leyendo imagen…' : 'Leer imagen' }}
+        </button>
+      </div>
+
+      <p class="importar-faltas-ayuda">Formatos de imagen habituales · máximo 12 MB. El primer reconocimiento puede tardar un poco y requiere conexión.</p>
+
+      <div class="ocr-progreso" *ngIf="leyendoImagen">
+        <div class="ocr-progreso-fila"><span>{{ estadoOcr }}</span><strong>{{ progresoOcr }}%</strong></div>
+        <mat-progress-bar mode="determinate" [value]="progresoOcr"></mat-progress-bar>
+      </div>
+
+      <div class="texto-ocr" *ngIf="textoReconocido && !leyendoImagen">
+        <label for="texto-faltas-ocr">Texto reconocido (puedes corregirlo antes de analizar)</label>
+        <textarea id="texto-faltas-ocr" rows="5" [(ngModel)]="textoReconocido" spellcheck="false"></textarea>
+        <div class="texto-ocr-acciones">
+          <button mat-stroked-button type="button" (click)="analizarTextoFaltas()">
+            <mat-icon>manage_search</mat-icon>
+            Analizar coincidencias
+          </button>
+          <button mat-button type="button" (click)="limpiarImportacionFaltas()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="faltas-vista-previa" *ngIf="hayVistaPrevia">
+        <div class="vista-previa-cabecera">
+          <h3>Revisa las faltas detectadas</h3>
+          <span>{{ faltasDetectadas.length }} coincidencia{{ faltasDetectadas.length !== 1 ? 's' : '' }}</span>
+        </div>
+
+        <mat-checkbox
+          class="falta-detectada"
+          *ngFor="let falta of faltasDetectadas"
+          [checked]="falta.seleccionada"
+          (change)="cambiarSeleccionFalta(falta, $event.checked)">
+          <span class="falta-detectada-texto">
+            <strong>{{ falta.cromo.numero }} · {{ falta.cromo.jugador.nombre }}</strong>
+            <small>{{ falta.cromo.tipoCromo.nombre }} · {{ falta.cromo.equipo.nombre }}</small>
+            <small class="referencia-ocr">Leído: {{ falta.referencia }}</small>
+          </span>
+        </mat-checkbox>
+
+        <div class="referencias-no-reconocidas" *ngIf="referenciasSinCoincidencia.length > 0">
+          <strong>{{ referenciasSinCoincidencia.length }} referencia(s) sin coincidencia</strong>
+          <p>Corrige el texto reconocido y vuelve a analizar, o ten en cuenta que esas faltas no se importarán.</p>
+          <ul>
+            <li *ngFor="let referencia of referenciasSinCoincidencia">{{ referencia }}</li>
+          </ul>
+        </div>
+
+        <p class="importar-reemplazo-aviso">
+          Al aplicar, las referencias seleccionadas quedarán como faltas y todos los demás cromos de la colección se marcarán como conseguidos.
+        </p>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="importandoFaltas || leyendoImagen"
+          (click)="aplicarImportacionFaltas()">
+          <mat-icon>check_circle</mat-icon>
+          {{ importandoFaltas ? 'Aplicando cambios…' : 'Confirmar e importar faltas' }}
+        </button>
+      </div>
+
+      <p class="importar-faltas-error" *ngIf="errorImportacion" role="alert">
+        <mat-icon>error_outline</mat-icon>{{ errorImportacion }}
+      </p>
+      <p class="importar-faltas-exito" *ngIf="mensajeImportacion" role="status">
+        <mat-icon>check_circle</mat-icon>{{ mensajeImportacion }}
+      </p>
+    </section>
+
     <div class="no-suscrito-banner" *ngIf="progreso && !suscrito">
       <p>Apúntate a esta colección para marcar qué cromos tienes y cuáles te faltan.</p>
       <button mat-flat-button color="primary" [disabled]="marcando" (click)="apuntarse()">
@@ -149,6 +251,29 @@
               {{ cromosDeEquipo(equipo).length }} cromo{{ cromosDeEquipo(equipo).length !== 1 ? 's' : '' }}
             </mat-panel-description>
           </mat-expansion-panel-header>
+
+          <div class="equipo-progreso" *ngIf="suscrito">
+            <ng-container *ngIf="progresoEquipo(equipo) as avance">
+              <div class="equipo-progreso-fila" *ngIf="avance.total > 0">
+                <span class="equipo-progreso-conteo">
+                  {{ avance.tenidos }} de {{ avance.total }} cromos
+                </span>
+                <span class="equipo-progreso-faltan" *ngIf="avance.faltan > 0">
+                  Faltan {{ avance.faltan }}
+                </span>
+                <span class="equipo-progreso-completo" *ngIf="avance.faltan === 0">
+                  <mat-icon>check_circle</mat-icon>
+                  Completo
+                </span>
+                <span class="equipo-progreso-pct">{{ avance.porcentaje }}%</span>
+              </div>
+              <mat-progress-bar
+                *ngIf="avance.total > 0"
+                mode="determinate"
+                [value]="avance.porcentaje">
+              </mat-progress-bar>
+            </ng-container>
+          </div>
 
           <div class="cromos-grid" *ngIf="cromosVisibles(equipo).length > 0">
             <mat-card

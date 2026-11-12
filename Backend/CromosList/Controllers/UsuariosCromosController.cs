@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CromosList.Dtos;
+using System.Security.Claims;
 
 namespace CromosList.Controllers;
 
@@ -132,4 +133,68 @@ public class UsuariosCromosController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpPut("album/{albumId:long}/faltas")]
+    public async Task<IActionResult> ImportarFaltas(long albumId, [FromBody] ImportarFaltasDto dto)
+    {
+        var claimId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                      ?? User.FindFirst("sub")?.Value;
+
+        if (!long.TryParse(claimId, out var usuarioId) || usuarioId <= 0)
+            return Unauthorized();
+
+        if (dto.CromosFaltantesIds is null || dto.CromosFaltantesIds.Count > 10000)
+            return BadRequest("La lista de faltas no es válida.");
+
+        var albumExiste = await _context.Albums
+            .AsNoTracking()
+            .AnyAsync(a => a.Id == albumId);
+
+        if (!albumExiste)
+            return NotFound("La colección no existe.");
+
+        var suscrito = await _context.UsuariosAlbumes
+            .AnyAsync(ua => ua.UsuarioId == usuarioId && ua.AlbumId == albumId);
+
+        if (!suscrito)
+            return Forbid();
+
+        var cromosAlbum = await _context.Cromos
+            .AsNoTracking()
+            .Where(c => c.AlbumId == albumId)
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        var idsAlbum = cromosAlbum.ToHashSet();
+        var idsFaltantes = dto.CromosFaltantesIds.ToHashSet();
+
+        if (idsFaltantes.Any(id => !idsAlbum.Contains(id)))
+            return BadRequest("La lista contiene cromos que no pertenecen a esta colección.");
+
+        var idsConseguidos = idsAlbum.Except(idsFaltantes).ToHashSet();
+        var marcasActuales = await _context.UsuariosCromo
+            .Where(uc => uc.UsuarioId == usuarioId && idsAlbum.Contains(uc.CromoId))
+            .ToListAsync();
+        var marcasActualesIds = marcasActuales.Select(uc => uc.CromoId).ToHashSet();
+
+        _context.UsuariosCromo.RemoveRange(
+            marcasActuales.Where(uc => !idsConseguidos.Contains(uc.CromoId)));
+
+        var marcasNuevas = idsConseguidos
+            .Except(marcasActualesIds)
+            .Select(cromoId => new Models.UsuarioCromo
+            {
+                UsuarioId = usuarioId,
+                CromoId = cromoId
+            });
+        await _context.UsuariosCromo.AddRangeAsync(marcasNuevas);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+}
+
+public class ImportarFaltasDto
+{
+    public List<long> CromosFaltantesIds { get; set; } = [];
 }

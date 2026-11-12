@@ -130,6 +130,8 @@
 
       <span class="toolbar-spacer"></span>
 
+      <app-theme-toggle class="toolbar-theme-toggle"></app-theme-toggle>
+
       @if (auth.user(); as user) {
         <button mat-button class="toolbar-user" [matMenuTriggerFor]="userMenu">
           <mat-icon>account_circle</mat-icon>

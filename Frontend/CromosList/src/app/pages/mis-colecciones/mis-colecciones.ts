@@ -10,11 +10,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { AlbumService, Album } from '../../services/album.service';
 import { UsuarioAlbumService, ColeccionSuscripcion } from '../../services/usuario-album.service';
 import { JugadorService, Jugador } from '../../services/jugador.service';
 import { EquipoService, Equipo } from '../../services/equipo.service';
 import { AuthService } from '../../services/auth.service';
+import { normalizarTexto } from '../../shared/texto.util';
 
 export interface ColeccionItem {
   albumId: number;
@@ -26,6 +28,13 @@ export interface ColeccionItem {
   tenidos: number;
   faltan: number;
   completado: boolean;
+}
+
+export interface ColeccionDisponibleGrupo {
+  clave: string;
+  nombre: string;
+  editorial: string;
+  colecciones: ColeccionItem[];
 }
 
 @Component({
@@ -41,7 +50,8 @@ export interface ColeccionItem {
     MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    MatExpansionModule
   ],
   templateUrl: './mis-colecciones.html',
   styleUrl: './mis-colecciones.scss'
@@ -49,6 +59,8 @@ export interface ColeccionItem {
 export class MisColeccionesComponent implements OnInit {
 
   colecciones: ColeccionItem[] = [];
+  busquedaControl = new FormControl('', { nonNullable: true });
+  mostrarCatalogo = false;
   cargando = true;
   cambiando = false;
   error = '';
@@ -93,8 +105,92 @@ export class MisColeccionesComponent implements OnInit {
     return this.colecciones.some(c => c.suscrito);
   }
 
+  get coleccionesActivas(): ColeccionItem[] {
+    return this.colecciones.filter(c => c.suscrito);
+  }
+
+  get coleccionesDisponibles(): ColeccionItem[] {
+    return this.colecciones.filter(c => !c.suscrito);
+  }
+
+  get coleccionesActivasFiltradas(): ColeccionItem[] {
+    return this.filtrarColecciones(this.coleccionesActivas);
+  }
+
+  get coleccionesDisponiblesFiltradas(): ColeccionItem[] {
+    return this.filtrarColecciones(this.coleccionesDisponibles);
+  }
+
+  get coleccionesDisponiblesAgrupadas(): ColeccionDisponibleGrupo[] {
+    const grupos = new Map<string, ColeccionDisponibleGrupo>();
+
+    for (const item of this.coleccionesDisponiblesFiltradas) {
+      const editorial = item.editorial?.nombre ?? '';
+      const clave = `${normalizarTexto(item.nombre)}|${normalizarTexto(editorial)}`;
+      if (!grupos.has(clave)) {
+        grupos.set(clave, {
+          clave,
+          nombre: item.nombre,
+          editorial,
+          colecciones: []
+        });
+      }
+      grupos.get(clave)!.colecciones.push(item);
+    }
+
+    return [...grupos.values()]
+      .map(grupo => ({
+        ...grupo,
+        colecciones: grupo.colecciones.sort((a, b) => this.compararTemporadas(b.temporada, a.temporada))
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
+
+  alternarCatalogo(): void {
+    this.mostrarCatalogo = !this.mostrarCatalogo;
+  }
+
+  private filtrarColecciones(colecciones: ColeccionItem[]): ColeccionItem[] {
+    const consulta = normalizarTexto(this.busquedaControl.value);
+    if (!consulta) return colecciones;
+
+    return colecciones.filter(item => normalizarTexto(
+      `${item.nombre} ${item.editorial.nombre} ${item.temporada}`
+    ).includes(consulta));
+  }
+
+  get coleccionesEnSeguimiento(): number {
+    return this.colecciones.filter(c => c.suscrito).length;
+  }
+
+  get coleccionesCompletadas(): number {
+    return this.colecciones.filter(c => c.suscrito && c.completado).length;
+  }
+
+  get cromosConseguidos(): number {
+    return this.colecciones.reduce((total, item) => total + (item.suscrito ? item.tenidos : 0), 0);
+  }
+
+  get cromosPendientes(): number {
+    return this.colecciones.reduce((total, item) => total + (item.suscrito ? item.faltan : 0), 0);
+  }
+
   trackAlbum(_: number, item: ColeccionItem): number {
     return item.albumId;
+  }
+
+  trackGrupoCatalogo(_: number, grupo: ColeccionDisponibleGrupo): string {
+    return grupo.clave;
+  }
+
+  totalCromosGrupo(grupo: ColeccionDisponibleGrupo): number {
+    return grupo.colecciones.reduce((total, item) => total + item.totalCromos, 0);
+  }
+
+  private compararTemporadas(a: string, b: string): number {
+    const anioA = Number(a.match(/\d{4}/)?.[0] ?? 0);
+    const anioB = Number(b.match(/\d{4}/)?.[0] ?? 0);
+    return anioA === anioB ? a.localeCompare(b, 'es') : anioA - anioB;
   }
 
   trackJugador(_: number, jugador: Jugador): number {

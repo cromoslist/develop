@@ -135,6 +135,54 @@ mat-panel-description {
   font-size: 13px;
 }
 
+.equipo-progreso {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.equipo-progreso-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.equipo-progreso-conteo {
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.equipo-progreso-faltan {
+  color: var(--app-text-muted);
+}
+
+.equipo-progreso-pct {
+  margin-left: auto;
+  color: var(--app-primary);
+  font-weight: 700;
+}
+
+.equipo-progreso-completo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--app-green-dark);
+  font-weight: 600;
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.equipo-progreso mat-progress-bar {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
 .progreso-banner {
   display: flex;
   flex-direction: column;
@@ -470,5 +518,14 @@ mat-panel-description {
   .cromos-grid {
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 8px;
+  }
+
+  .equipo-progreso {
+    padding: 0 12px 12px;
+  }
+
+  .equipo-progreso-fila {
+    flex-wrap: wrap;
+    gap: 6px 10px;
   }
 }

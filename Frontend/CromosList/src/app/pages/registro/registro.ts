@@ -3,10 +3,11 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
+import { ThemeToggleComponent } from '../../shared/theme-toggle';
 
 @Component({
   selector: 'app-registro',
-  imports: [FormsModule, RouterLink, ...MATERIAL_IMPORTS],
+  imports: [FormsModule, RouterLink, ThemeToggleComponent, ...MATERIAL_IMPORTS],
   templateUrl: './registro.html',
   styleUrl: './registro.scss'
 })
