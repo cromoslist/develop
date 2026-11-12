@@ -15,4 +15,24 @@ services:
       - key: JwtSettings__SecretKey
         sync: false
       - key: TransfermarktScraper__BaseUrl
-        sync: false
+        fromService:
+          type: web
+          name: transfermarkt-scraper
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: TransfermarktScraper__ApiKey
+        fromService:
+          type: web
+          name: transfermarkt-scraper
+          envVarKey: TRANSFERMARKT_API_KEY
+
+  - type: web
+    name: transfermarkt-scraper
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: ./transfermarkt-deploy/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: TRANSFERMARKT_API_KEY
+        generateValue: true
