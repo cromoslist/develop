@@ -77,8 +77,9 @@ public class TransfermarktController : ControllerBase
 
         try
         {
+            using var request = CrearSolicitudScraper(requestUri);
             using var response = await _httpClientFactory.CreateClient("TransfermarktScraper")
-                .GetAsync(requestUri, cancellationToken);
+                .SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -205,6 +206,16 @@ public class TransfermarktController : ControllerBase
                   ?? User.FindFirst("sub")?.Value;
 
         return long.TryParse(sub, out var id) ? id : 0;
+    }
+
+    private HttpRequestMessage CrearSolicitudScraper(Uri requestUri)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        var apiKey = _configuration["TransfermarktScraper:ApiKey"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(apiKey))
+            request.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
+
+        return request;
     }
 
     private static void AgregarAlias(IDictionary<string, Jugador> jugadores, string? alias, Jugador jugador)

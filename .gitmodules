@@ -1,0 +1,3 @@
+[submodule "transfermarkt-scraper"]
+	path = transfermarkt-scraper
+	url = https://github.com/omkarcloud/transfermarkt-scraper.git
