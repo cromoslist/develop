@@ -25,7 +25,7 @@ mat-sidenav {
   font-size: 28px;
   width: 28px;
   height: 28px;
-  color: var(--app-green);
+  color: var(--app-accent);
 }
 
 mat-nav-list {
@@ -87,6 +87,10 @@ mat-toolbar mat-icon {
   flex: 1;
 }
 
+.toolbar-theme-toggle {
+  margin-right: 4px;
+}
+
 .toolbar-user-name {
   max-width: 180px;
   overflow: hidden;
@@ -98,7 +102,7 @@ mat-toolbar mat-icon {
   margin-left: 8px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: var(--app-green);
+  background: var(--app-accent);
   color: #fff;
   font-size: 11px;
   font-weight: 600;

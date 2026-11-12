@@ -1,5 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -28,10 +29,18 @@ export interface ColeccionGrupo {
   cromos: AlbumCromo[];
 }
 
+export interface FaltaDetectada {
+  referencia: string;
+  cromo: AlbumCromo;
+  confianza: number;
+  seleccionada: boolean;
+}
+
 @Component({
   selector: 'app-coleccion-detalle',
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     MatCardModule,
     MatIconModule,
@@ -54,6 +63,17 @@ export class ColeccionDetalleComponent implements OnInit {
   progreso: ColeccionProgreso | null = null;
   marcando = false;
   soloFaltan = false;
+  imagenFaltas: File | null = null;
+  textoReconocido = '';
+  faltasDetectadas: FaltaDetectada[] = [];
+  referenciasSinCoincidencia: string[] = [];
+  leyendoImagen = false;
+  importandoFaltas = false;
+  progresoOcr = 0;
+  estadoOcr = '';
+  errorImportacion = '';
+  mensajeImportacion = '';
+  hayVistaPrevia = false;
 
   placeholders = [1, 2, 3, 4];
 
@@ -196,6 +216,231 @@ export class ColeccionDetalleComponent implements OnInit {
   progresoPct(): number {
     if (!this.progreso || !this.progreso.totalCromos) return 0;
     return Math.round((this.progreso.tenidos / this.progreso.totalCromos) * 100);
+  }
+
+  progresoEquipo(equipo: AlbumEquipoConCromos): {
+    tenidos: number;
+    total: number;
+    faltan: number;
+    porcentaje: number;
+  } {
+    const total = equipo.cromos.length;
+    const tenidos = equipo.cromos.reduce((cantidad, cromo) => cantidad + (this.loTiene(cromo) ? 1 : 0), 0);
+
+    return {
+      tenidos,
+      total,
+      faltan: total - tenidos,
+      porcentaje: total ? Math.round((tenidos / total) * 100) : 0
+    };
+  }
+
+  seleccionarImagenFaltas(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+    this.imagenFaltas = null;
+    this.faltasDetectadas = [];
+    this.referenciasSinCoincidencia = [];
+    this.hayVistaPrevia = false;
+    this.textoReconocido = '';
+
+    if (!archivo) return;
+    if (!archivo.type.startsWith('image/')) {
+      this.errorImportacion = 'Selecciona un archivo de imagen.';
+      return;
+    }
+    if (archivo.size > 12 * 1024 * 1024) {
+      this.errorImportacion = 'La imagen debe pesar menos de 12 MB.';
+      return;
+    }
+
+    this.imagenFaltas = archivo;
+  }
+
+  async leerImagenFaltas(): Promise<void> {
+    if (!this.imagenFaltas || this.leyendoImagen) return;
+
+    this.leyendoImagen = true;
+    this.progresoOcr = 0;
+    this.estadoOcr = 'Preparando el reconocimiento…';
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+
+    let worker: import('tesseract.js').Worker | null = null;
+    try {
+      type TesseractModule = {
+        createWorker?: typeof import('tesseract.js').createWorker;
+        default?: { createWorker: typeof import('tesseract.js').createWorker };
+      };
+      const tesseract = await import('tesseract.js') as unknown as TesseractModule;
+      const createWorker = tesseract.createWorker ?? tesseract.default?.createWorker;
+      if (!createWorker) {
+        throw new Error('No se pudo inicializar el motor OCR.');
+      }
+      worker = await createWorker('spa+eng', undefined, {
+        logger: mensaje => {
+          if (mensaje.status === 'recognizing text') {
+            this.progresoOcr = Math.round(mensaje.progress * 100);
+            this.estadoOcr = 'Leyendo el texto de la imagen…';
+            this.cdr.detectChanges();
+          }
+        }
+      });
+      const resultado = await worker.recognize(this.imagenFaltas);
+      this.textoReconocido = resultado.data.text.trim();
+      if (!this.textoReconocido) {
+        this.errorImportacion = 'No se encontró texto legible. Prueba con una imagen más nítida.';
+      } else {
+        this.estadoOcr = 'Texto reconocido. Revísalo y analiza las coincidencias.';
+      }
+    } catch (error) {
+      console.error('Error al reconocer la imagen de faltas', error);
+      this.errorImportacion = 'No se pudo leer la imagen. Comprueba tu conexión e inténtalo de nuevo.';
+      this.estadoOcr = '';
+    } finally {
+      await worker?.terminate();
+      this.leyendoImagen = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  analizarTextoFaltas(): void {
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+    const referencias = this.separarReferencias(this.textoReconocido);
+    const imagenSinFaltas = /\bfaltas?\s*:?\s*0\b/i.test(this.textoReconocido);
+    if (!referencias.length && !imagenSinFaltas) {
+      this.errorImportacion = 'No hay referencias para analizar. Comprueba el texto reconocido.';
+      return;
+    }
+
+    const cromos = this.album?.equipos.flatMap(equipo => equipo.cromos) ?? [];
+    const cromosUnicos = [...new Map(cromos.map(cromo => [cromo.id, cromo])).values()];
+    const detectadas: FaltaDetectada[] = [];
+    const sinCoincidencia: string[] = [];
+    const idsAsignados = new Set<number>();
+
+    for (const referencia of referencias) {
+      const resultados = cromosUnicos
+        .map(cromo => ({ cromo, confianza: this.puntuacionCoincidencia(referencia, cromo) }))
+        .sort((a, b) => b.confianza - a.confianza);
+      const mejor = resultados[0];
+      const segundo = resultados[1];
+      const noAmbigua = !segundo || mejor.confianza - segundo.confianza >= 8;
+
+      if (mejor && mejor.confianza >= 60 && noAmbigua && !idsAsignados.has(mejor.cromo.id)) {
+        detectadas.push({
+          referencia,
+          cromo: mejor.cromo,
+          confianza: mejor.confianza,
+          seleccionada: true
+        });
+        idsAsignados.add(mejor.cromo.id);
+      } else {
+        sinCoincidencia.push(referencia);
+      }
+    }
+
+    this.faltasDetectadas = detectadas;
+    this.referenciasSinCoincidencia = sinCoincidencia;
+    this.hayVistaPrevia = true;
+  }
+
+  cambiarSeleccionFalta(falta: FaltaDetectada, seleccionada: boolean): void {
+    falta.seleccionada = seleccionada;
+  }
+
+  aplicarImportacionFaltas(): void {
+    if (!this.album || !this.miId || !this.hayVistaPrevia || this.importandoFaltas) return;
+
+    const idsFaltantes = this.faltasDetectadas
+      .filter(falta => falta.seleccionada)
+      .map(falta => falta.cromo.id);
+    const detalleNoReconocidos = this.referenciasSinCoincidencia.length > 0
+      ? `Hay ${this.referenciasSinCoincidencia.length} referencia(s) sin asociar. `
+      : '';
+    const continuar = confirm(
+      `${detalleNoReconocidos}Se importarán ${idsFaltantes.length} faltas y los demás cromos se marcarán como conseguidos. ¿Continuar?`
+    );
+    if (!continuar) return;
+
+    this.importandoFaltas = true;
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+    this.usuarioCromoService.importarFaltas(this.album.id, idsFaltantes).subscribe({
+      next: () => {
+        this.importandoFaltas = false;
+        this.mensajeImportacion = `Importación completada: ${idsFaltantes.length} faltas aplicadas.`;
+        this.cargarProgreso();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.importandoFaltas = false;
+        this.errorImportacion = 'No se pudieron importar las faltas. No se han aplicado los cambios.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  limpiarImportacionFaltas(): void {
+    this.imagenFaltas = null;
+    this.textoReconocido = '';
+    this.faltasDetectadas = [];
+    this.referenciasSinCoincidencia = [];
+    this.hayVistaPrevia = false;
+    this.errorImportacion = '';
+    this.mensajeImportacion = '';
+    this.estadoOcr = '';
+  }
+
+  private separarReferencias(texto: string): string[] {
+    return texto
+      .replace(/\r/g, '\n')
+      .replace(/\n+/g, ',')
+      .split(/[;,]+/)
+      .map(referencia => referencia
+        .replace(/^\s*faltas?\s*\d*\s*/i, '')
+        .replace(/\beditar\s+faltas?\b/gi, '')
+        .replace(/[|*]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim())
+      .filter(referencia => referencia.length >= 3);
+  }
+
+  private puntuacionCoincidencia(referencia: string, cromo: AlbumCromo): number {
+    const texto = this.normalizarReferencia(referencia);
+    const jugador = this.normalizarReferencia(cromo.jugador?.nombre);
+    const numero = this.normalizarReferencia(cromo.numero);
+    const tipo = this.normalizarReferencia(cromo.tipoCromo?.nombre);
+    const equipo = this.normalizarReferencia(cromo.equipo?.nombre);
+    const edicion = this.normalizarReferencia(cromo.edicion?.nombre);
+    let puntuacion = 0;
+
+    if (jugador && texto.includes(jugador)) {
+      puntuacion += 72;
+    } else if (jugador) {
+      const palabras = jugador.split(' ').filter(palabra => palabra.length > 2);
+      const encontradas = palabras.filter(palabra => texto.split(' ').includes(palabra)).length;
+      if (palabras.length) puntuacion += (encontradas / palabras.length) * 55;
+    }
+
+    if (numero && texto.includes(numero)) puntuacion += 30;
+    if (tipo && texto.includes(tipo)) puntuacion += 18;
+    if (equipo && texto.includes(equipo)) puntuacion += 10;
+    if (edicion && edicion.length > 2 && texto.includes(edicion)) puntuacion += 12;
+
+    return Math.min(100, Math.round(puntuacion));
+  }
+
+  private normalizarReferencia(texto: string | null | undefined): string {
+    return normalizarTexto(texto)
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
   }
 
   alternarCromo(cromo: AlbumCromo): void {

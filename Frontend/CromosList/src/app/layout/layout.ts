@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MATERIAL_IMPORTS } from '../shared/material.imports';
+import { ThemeToggleComponent } from '../shared/theme-toggle';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -11,6 +12,7 @@ import { AuthService } from '../services/auth.service';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
+    ThemeToggleComponent,
     ...MATERIAL_IMPORTS
   ],
   templateUrl: './layout.html',

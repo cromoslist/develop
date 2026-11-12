@@ -1,13 +1,47 @@
-<div class="page-container">
+<div class="page-container colecciones-page">
 
   <header class="page-header">
+    <div class="header-icon">
+      <mat-icon>collections_bookmark</mat-icon>
+    </div>
     <div>
+      <p class="header-eyebrow">TU ESPACIO DE COLECCIÓN</p>
       <h1>Mis colecciones</h1>
       <p class="subtitle">
-        Apúntate a una colección para saber qué cromos tienes y cuáles te faltan.
+        Sigue tu progreso y descubre cuánto te falta para completar tus álbumes.
       </p>
     </div>
   </header>
+
+  <div class="colecciones-buscador-container" *ngIf="!cargando && !error && colecciones.length > 0">
+    <mat-form-field appearance="outline" class="colecciones-buscador">
+      <mat-label>Buscar colección</mat-label>
+      <input
+        matInput
+        type="search"
+        [formControl]="busquedaControl"
+        placeholder="Álbum, editorial o temporada">
+      <button
+        mat-icon-button
+        matSuffix
+        type="button"
+        *ngIf="busquedaControl.value"
+        (click)="busquedaControl.setValue('')"
+        aria-label="Limpiar búsqueda">
+        <mat-icon>close</mat-icon>
+      </button>
+      <mat-icon matSuffix *ngIf="!busquedaControl.value">search</mat-icon>
+    </mat-form-field>
+    <button
+      mat-stroked-button
+      class="catalogo-toggle"
+      type="button"
+      *ngIf="coleccionesDisponibles.length > 0 || mostrarCatalogo"
+      (click)="alternarCatalogo()">
+      <mat-icon>{{ mostrarCatalogo ? 'arrow_back' : 'explore' }}</mat-icon>
+      {{ mostrarCatalogo ? 'Volver a mis colecciones' : tieneSuscripciones ? 'Explorar catálogo' : 'Explorar colecciones' }}
+    </button>
+  </div>
 
   <div class="cargando" *ngIf="cargando">
     <mat-spinner diameter="40"></mat-spinner>
@@ -19,28 +53,89 @@
     <p>{{ error }}</p>
   </div>
 
-  <mat-card class="empty-banner" *ngIf="!cargando && !error && colecciones.length > 0 && !tieneSuscripciones">
+  <section
+    class="resumen-grid"
+    *ngIf="!cargando && !error && tieneSuscripciones && !mostrarCatalogo"
+    aria-label="Resumen de tus colecciones">
+    <mat-card class="resumen-card resumen-seguimiento">
+      <mat-card-content>
+        <span class="resumen-icon"><mat-icon>collections_bookmark</mat-icon></span>
+        <span class="resumen-texto">
+          <span class="resumen-etiqueta">En seguimiento</span>
+          <strong>{{ coleccionesEnSeguimiento }}</strong>
+        </span>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="resumen-card resumen-conseguidos">
+      <mat-card-content>
+        <span class="resumen-icon"><mat-icon>check_circle</mat-icon></span>
+        <span class="resumen-texto">
+          <span class="resumen-etiqueta">Cromos conseguidos</span>
+          <strong>{{ cromosConseguidos }}</strong>
+        </span>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="resumen-card resumen-pendientes">
+      <mat-card-content>
+        <span class="resumen-icon"><mat-icon>flag</mat-icon></span>
+        <span class="resumen-texto">
+          <span class="resumen-etiqueta">Por conseguir</span>
+          <strong>{{ cromosPendientes }}</strong>
+        </span>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="resumen-card resumen-completadas">
+      <mat-card-content>
+        <span class="resumen-icon"><mat-icon>emoji_events</mat-icon></span>
+        <span class="resumen-texto">
+          <span class="resumen-etiqueta">Completadas</span>
+          <strong>{{ coleccionesCompletadas }}</strong>
+        </span>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <mat-card class="empty-banner" *ngIf="!cargando && !error && coleccionesDisponibles.length > 0 && !tieneSuscripciones && !mostrarCatalogo">
     <mat-card-content>
       <mat-icon>collections_bookmark</mat-icon>
       <div>
-        <h2>Elige una colección para empezar</h2>
-        <p>Aún no estás apuntado a ninguna colección. Las que hay disponibles son estas: apúntate a una para llevar el control de qué cromos tienes y cuáles te faltan.</p>
+        <h2>Aún no tienes colecciones activas</h2>
+        <p>Explora el catálogo y apúntate a una colección para empezar a registrar tus cromos.</p>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <div class="colecciones-grid" *ngIf="!cargando && colecciones.length > 0">
+  <section class="colecciones-seccion" *ngIf="!cargando && !error && !mostrarCatalogo && coleccionesActivas.length > 0">
+    <div class="seccion-cabecera">
+      <div>
+        <h2>Mis colecciones activas</h2>
+        <p>{{ coleccionesActivasFiltradas.length }} de {{ coleccionesActivas.length }} en seguimiento</p>
+      </div>
+    </div>
+
+    <div class="colecciones-grid" *ngIf="coleccionesActivasFiltradas.length > 0">
 
     <mat-card
       class="coleccion-card"
-      *ngFor="let item of colecciones; trackBy: trackAlbum"
-      [class.completada]="item.completado">
+      *ngFor="let item of coleccionesActivasFiltradas; trackBy: trackAlbum"
+      [class.completada]="item.completado"
+      [class.en-curso]="item.suscrito && !item.completado"
+      [class.disponible]="!item.suscrito">
 
       <mat-card-content>
 
         <div class="card-top">
-          <span class="coleccion-temporada">{{ item.temporada }}</span>
-          <mat-icon class="completada-icon" *ngIf="item.completado">check_circle</mat-icon>
+          <div class="card-identidad">
+            <span class="album-icon"><mat-icon>album</mat-icon></span>
+            <span class="coleccion-temporada">{{ item.temporada }}</span>
+          </div>
+          <span class="estado-chip" [class.estado-completa]="item.completado" [class.estado-curso]="item.suscrito && !item.completado" [class.estado-disponible]="!item.suscrito">
+            <mat-icon>{{ item.completado ? 'check_circle' : item.suscrito ? 'trending_up' : 'add_circle_outline' }}</mat-icon>
+            {{ item.completado ? 'Completada' : item.suscrito ? 'En curso' : 'Disponible' }}
+          </span>
         </div>
 
         <h2 class="coleccion-nombre">{{ item.nombre }}</h2>
@@ -48,18 +143,21 @@
 
         <div *ngIf="item.suscrito" class="progreso">
           <div class="progreso-fila">
-            <span class="progreso-valor">{{ item.tenidos }} / {{ item.totalCromos }}</span>
+            <span class="progreso-valor">{{ item.tenidos }} de {{ item.totalCromos }} cromos</span>
             <span class="progreso-pct">{{ progreso(item) }}%</span>
           </div>
           <mat-progress-bar
             mode="determinate"
-            [value]="progreso(item)">
+            [value]="progreso(item)"
+            [attr.aria-label]="'Progreso de ' + item.nombre">
           </mat-progress-bar>
           <p class="progreso-faltan" *ngIf="!item.completado">
-            Te faltan {{ item.faltan }} cromo{{ item.faltan !== 1 ? 's' : '' }}
+            <mat-icon>radio_button_unchecked</mat-icon>
+            <span>Te faltan <strong>{{ item.faltan }}</strong> cromo{{ item.faltan !== 1 ? 's' : '' }}</span>
           </p>
           <p class="progreso-completo" *ngIf="item.completado">
-            ¡Colección completada!
+            <mat-icon>celebration</mat-icon>
+            <span>¡Colección completada!</span>
           </p>
         </div>
 
@@ -77,8 +175,8 @@
           color="primary"
           [routerLink]="['/album', item.albumId]">
 
-          <mat-icon>visibility</mat-icon>
-          Ver
+          <mat-icon>arrow_forward</mat-icon>
+          Ver colección
 
         </a>
 
@@ -121,6 +219,61 @@
 
     </mat-card>
 
+    </div>
+  </section>
+
+  <div class="busqueda-vacia" *ngIf="!cargando && !error && !mostrarCatalogo && busquedaControl.value && coleccionesActivas.length > 0 && coleccionesActivasFiltradas.length === 0">
+    <mat-icon>search_off</mat-icon>
+    <p>No hay colecciones activas que coincidan con «{{ busquedaControl.value }}».</p>
+  </div>
+
+  <section class="catalogo-seccion" *ngIf="!cargando && !error && mostrarCatalogo && coleccionesDisponiblesFiltradas.length > 0">
+    <div class="seccion-cabecera">
+      <div>
+        <h2>Colecciones disponibles</h2>
+        <p>{{ coleccionesDisponiblesFiltradas.length }} temporadas en {{ coleccionesDisponiblesAgrupadas.length }} lista{{ coleccionesDisponiblesAgrupadas.length !== 1 ? 's' : '' }}</p>
+      </div>
+    </div>
+    <mat-accordion class="catalogo-acordeon" multi>
+      <mat-expansion-panel
+        class="catalogo-panel"
+        *ngFor="let grupo of coleccionesDisponiblesAgrupadas; trackBy: trackGrupoCatalogo">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>collections_bookmark</mat-icon>
+            <span class="catalogo-panel-nombre">
+              <strong>{{ grupo.nombre }}</strong>
+              <small>{{ grupo.editorial }}</small>
+            </span>
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ totalCromosGrupo(grupo) }} cromos
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="temporadas-lista">
+          <div class="temporada-fila" *ngFor="let item of grupo.colecciones; trackBy: trackAlbum">
+            <div class="temporada-datos">
+              <span class="coleccion-temporada">{{ item.temporada }}</span>
+              <span class="temporada-cromos">{{ item.totalCromos }} cromo{{ item.totalCromos !== 1 ? 's' : '' }}</span>
+            </div>
+            <div class="temporada-acciones">
+              <a mat-stroked-button color="primary" [routerLink]="['/album', item.albumId]">
+                <mat-icon>visibility</mat-icon> Ver
+              </a>
+              <button mat-flat-button color="primary" [disabled]="cambiando" (click)="apuntarse(item)">
+                <mat-icon>add</mat-icon> Apuntarme
+              </button>
+            </div>
+          </div>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </section>
+
+  <div class="busqueda-vacia" *ngIf="!cargando && !error && mostrarCatalogo && busquedaControl.value && coleccionesDisponibles.length > 0 && coleccionesDisponiblesFiltradas.length === 0">
+    <mat-icon>search_off</mat-icon>
+    <p>No hay colecciones disponibles que coincidan con «{{ busquedaControl.value }}».</p>
   </div>
 
   <div class="vacio" *ngIf="!cargando && !error && colecciones.length === 0">
