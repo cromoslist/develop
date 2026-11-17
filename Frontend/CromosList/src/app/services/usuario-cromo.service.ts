@@ -6,7 +6,7 @@ export interface CromoTenido {
   id: number;
   numero: string;
   jugador: { id: number; nombre: string };
-  equipo: { id: number; nombre: string };
+  equipo: { id: number; nombre: string } | null;
   edicion: { id: number; nombre: string };
   tipoCromo: { id: number; nombre: string };
 }

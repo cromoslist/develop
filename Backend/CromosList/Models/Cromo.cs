@@ -9,8 +9,8 @@ public class Cromo
     public long JugadorId { get; set; }
     public Jugador Jugador { get; set; } = null!;
 
-    public long EquipoId { get; set; }
-    public Equipo Equipo { get; set; } = null!;
+    public long? EquipoId { get; set; }
+    public Equipo? Equipo { get; set; }
 
     public long EdicionId { get; set; }
     public Edicion Edicion { get; set; } = null!;

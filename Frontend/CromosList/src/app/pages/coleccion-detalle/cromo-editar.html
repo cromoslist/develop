@@ -32,8 +32,8 @@
           {{ equipo.nombre }}
         </mat-option>
       </mat-autocomplete>
-      <mat-error *ngIf="cromoForm.get('equipo')?.hasError('required')">
-        El equipo es obligatorio.
+      <mat-error *ngIf="cromoForm.get('equipo')?.hasError('seleccionIncompleta')">
+        Selecciona un equipo de la lista o deja el campo vacío.
       </mat-error>
     </mat-form-field>
 

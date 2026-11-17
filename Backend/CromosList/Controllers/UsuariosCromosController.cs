@@ -60,11 +60,9 @@ public class UsuariosCromosController : ControllerBase
                     uc.Cromo.Jugador.Nombre
                 },
 
-                Equipo = new
-                {
-                    uc.Cromo.Equipo.Id,
-                    uc.Cromo.Equipo.Nombre
-                },
+                Equipo = uc.Cromo.Equipo == null
+                    ? null
+                    : new { uc.Cromo.Equipo.Id, uc.Cromo.Equipo.Nombre },
 
                 Edicion = new
                 {

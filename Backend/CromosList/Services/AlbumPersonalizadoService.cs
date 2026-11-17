@@ -79,7 +79,8 @@ public class AlbumPersonalizadoService
             await _context.SaveChangesAsync();
 
             var equipoIds = cromos
-                .Select(c => c.EquipoId)
+                .Where(c => c.EquipoId.HasValue)
+                .Select(c => c.EquipoId!.Value)
                 .Distinct()
                 .ToList();
 

@@ -122,7 +122,7 @@
           (change)="cambiarSeleccionFalta(falta, $event.checked)">
           <span class="falta-detectada-texto">
             <strong>{{ falta.cromo.numero }} · {{ falta.cromo.jugador.nombre }}</strong>
-            <small>{{ falta.cromo.tipoCromo.nombre }} · {{ falta.cromo.equipo.nombre }}</small>
+            <small>{{ falta.cromo.tipoCromo.nombre }} · {{ falta.cromo.equipo?.nombre || 'Sin equipo' }}</small>
             <small class="referencia-ocr">Leído: {{ falta.referencia }}</small>
           </span>
         </mat-checkbox>
@@ -210,7 +210,7 @@
                 <span class="cromo-numero">{{ cromo.numero }}</span>
                 <p class="cromo-jugador">{{ cromo.jugador.nombre }}</p>
                 <p class="cromo-tipo" *ngIf="cromo.tipoCromo.nombre">{{ cromo.tipoCromo.nombre }}</p>
-                <p class="cromo-equipo">{{ cromo.equipo.nombre }}</p>
+                <p class="cromo-equipo">{{ cromo.equipo?.nombre || 'Sin equipo' }}</p>
                 <p class="cromo-edicion" *ngIf="mostrarEdicion(cromo)">{{ cromo.edicion.nombre }}</p>
               </mat-card-content>
               <button
@@ -287,7 +287,7 @@
 <mat-card-content>
                 <span class="cromo-numero">{{ cromo.numero }}</span>
                 <p class="cromo-jugador">{{ cromo.jugador.nombre }}</p>
-                <p class="cromo-equipo">{{ cromo.equipo.nombre }}</p>
+                <p class="cromo-equipo">{{ cromo.equipo?.nombre || 'Sin equipo' }}</p>
                 <p class="cromo-edicion" *ngIf="mostrarEdicion(cromo)">{{ cromo.edicion.nombre }}</p>
               </mat-card-content>
               <button
@@ -365,7 +365,7 @@
               <mat-card-content>
                 <span class="cromo-numero">{{ cromo.numero }}</span>
                 <p class="cromo-jugador">{{ cromo.jugador.nombre }}</p>
-                <p class="cromo-equipo">{{ cromo.equipo.nombre }}</p>
+                <p class="cromo-equipo">{{ cromo.equipo?.nombre || 'Sin equipo' }}</p>
                 <p class="cromo-edicion" *ngIf="mostrarEdicion(cromo)">{{ cromo.edicion.nombre }}</p>
               </mat-card-content>
               <button

@@ -152,7 +152,9 @@ public class JugadoresController : ControllerBase
                     {
                         c.Id,
                         c.Numero,
-                        Equipo = new { c.Equipo.Id, c.Equipo.Nombre },
+                        Equipo = c.Equipo == null
+                            ? null
+                            : new { c.Equipo.Id, c.Equipo.Nombre },
                         Edicion = new { c.Edicion.Id, c.Edicion.Nombre },
                         TipoCromo = new { c.TipoCromo.Id, c.TipoCromo.Nombre }
                     })

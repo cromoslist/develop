@@ -10,6 +10,7 @@ import {
 } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Observable, forkJoin, firstValueFrom, map, startWith } from 'rxjs';
@@ -35,6 +36,9 @@ interface FilaCromoCsv {
   jugadorId: number | null;
   jugadorNombreValidado: string | null;
   jugadoresSugeridos: JugadorEquipo[];
+  permitirSinEquipo: boolean;
+  jugadorPendienteCrear: boolean;
+  jugadorNoEncontrado: boolean;
   esEscudo: boolean;
   error: string;
 }
@@ -45,6 +49,7 @@ interface FilaCromoCsv {
     CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
+    MatPaginatorModule,
     MatTableModule,
     MatTooltipModule,
     ...MATERIAL_IMPORTS
@@ -78,6 +83,8 @@ export class AnadirCromoComponent implements OnInit {
   cargandoJugadores = false;
   csvArchivo = '';
   csvFilas: FilaCromoCsv[] = [];
+  csvPagina = 0;
+  csvTamanoPagina = 20;
   csvMensaje = '';
   csvError = '';
   importandoCsv = false;
@@ -214,23 +221,36 @@ export class AnadirCromoComponent implements OnInit {
       && !this.importandoCsv
       && !this.cargandoCsv
       && this.csvFilas.length > 0
-      && this.csvFilas.length <= 500
+      && this.csvFilas.length <= 1000
       && this.csvFilas.every(fila =>
         !fila.error
-        && (fila.jugadorId !== null || fila.esEscudo)
-        && fila.equipoId !== null
+        && (fila.jugadorId !== null || fila.esEscudo || fila.jugadorPendienteCrear)
+        && (fila.equipoId !== null || fila.permitirSinEquipo)
         && fila.tipoCromoId !== null
         && fila.edicionId !== null
       );
   }
 
   get csvFilasVisibles(): FilaCromoCsv[] {
-    return this.csvFilas.slice(0, 20);
+    const inicio = this.csvPagina * this.csvTamanoPagina;
+    return this.csvFilas.slice(inicio, inicio + this.csvTamanoPagina);
+  }
+
+  cambiarPaginaCsv(evento: PageEvent): void {
+    this.csvPagina = evento.pageIndex;
+    this.csvTamanoPagina = evento.pageSize;
+  }
+
+  eliminarFilaCsv(fila: FilaCromoCsv): void {
+    this.csvFilas = this.csvFilas.filter(filaCsv => filaCsv !== fila);
+    const ultimaPagina = Math.max(0, Math.ceil(this.csvFilas.length / this.csvTamanoPagina) - 1);
+    this.csvPagina = Math.min(this.csvPagina, ultimaPagina);
+    this.cdr.detectChanges();
   }
 
   get hayErroresCsv(): boolean {
     return this.csvFilas.some(fila =>
-      !!fila.error || (fila.jugadorId === null && !fila.esEscudo)
+      !!fila.error || (fila.jugadorId === null && !fila.esEscudo && !fila.jugadorPendienteCrear)
     );
   }
 
@@ -322,6 +342,9 @@ export class AnadirCromoComponent implements OnInit {
       const indiceTemporada = this.buscarColumna(cabeceras, ['temporada', 'temporadainicio']);
       const indiceTipoCromo = this.buscarColumna(cabeceras, ['tipocromo', 'tipo', 'tipocromoid']);
       const indiceEdicion = this.buscarColumna(cabeceras, ['edicion', 'edition', 'edicionid']);
+      const indicePermitirSinEquipo = this.buscarColumna(cabeceras, [
+        'permitirsinequipo', 'sinequipo', 'jugadorsinequipo'
+      ]);
       const indiceComentario = this.buscarColumna(cabeceras, ['comentario', 'nota']);
 
       if ([indiceNumero, indiceJugador, indiceEquipo, indiceTemporada, indiceTipoCromo, indiceEdicion].some(indice => indice < 0)) {
@@ -329,8 +352,8 @@ export class AnadirCromoComponent implements OnInit {
       }
 
       const datos = registros.slice(1).filter(fila => fila.some(valor => valor.trim() !== ''));
-      if (datos.length > 500) {
-        throw new Error('El archivo supera el máximo de 500 cromos por importación.');
+      if (datos.length > 1000) {
+        throw new Error('El archivo supera el máximo de 1000 cromos por importación.');
       }
 
       this.csvFilas = datos.map((fila, indice) => {
@@ -340,16 +363,22 @@ export class AnadirCromoComponent implements OnInit {
         const temporada = (fila[indiceTemporada] ?? '').trim();
         const tipoCromo = (fila[indiceTipoCromo] ?? '').trim();
         const edicion = (fila[indiceEdicion] ?? '').trim();
+        const valorPermitirSinEquipo = indicePermitirSinEquipo >= 0
+          ? (fila[indicePermitirSinEquipo] ?? '').trim()
+          : '';
+        const permitirSinEquipo = this.parsearBooleanCsv(valorPermitirSinEquipo);
         const comentario = indiceComentario >= 0
           ? (fila[indiceComentario] ?? '').trim() || null
           : null;
 
-        const equipoResuelto = this.resolverElementoCsv(
-          equipo,
-          this.equiposAlbum,
-          opcion => [opcion.nombre],
-          'equipo'
-        );
+        const equipoResuelto = permitirSinEquipo && !equipo
+          ? { id: null, error: '' }
+          : this.resolverElementoCsv(
+              equipo,
+              this.equiposAlbum,
+              opcion => [opcion.nombre],
+              'equipo'
+            );
         const tipoResuelto = this.resolverElementoCsv(
           tipoCromo,
           this.tiposCromoAlbum,
@@ -378,6 +407,9 @@ export class AnadirCromoComponent implements OnInit {
           jugadorId: null,
           jugadorNombreValidado: null,
           jugadoresSugeridos: [],
+          permitirSinEquipo: permitirSinEquipo === true,
+          jugadorPendienteCrear: false,
+          jugadorNoEncontrado: false,
           esEscudo: normalizarTexto(nombreJugador) === 'escudo',
           error: ''
         };
@@ -385,7 +417,12 @@ export class AnadirCromoComponent implements OnInit {
         if (!numero) filaCsv.error = 'Falta el número del cromo.';
         else if (numero.length > 100) filaCsv.error = 'El número supera los 100 caracteres.';
         if (!nombreJugador) filaCsv.error = [filaCsv.error, 'Falta el nombre del jugador.'].filter(Boolean).join(' ');
-        if (!temporada) this.agregarErrorCsv(filaCsv, 'Falta la temporada del jugador en el equipo.');
+        if (permitirSinEquipo === null && valorPermitirSinEquipo) {
+          this.agregarErrorCsv(filaCsv, 'El campo «permitirSinEquipo» debe ser true o false.');
+        }
+        if (!temporada && !filaCsv.permitirSinEquipo) {
+          this.agregarErrorCsv(filaCsv, 'Falta la temporada del jugador en el equipo.');
+        }
         if (equipoResuelto.error) this.agregarErrorCsv(filaCsv, equipoResuelto.error);
         if (tipoResuelto.error) this.agregarErrorCsv(filaCsv, tipoResuelto.error);
         if (edicionResuelta.error) this.agregarErrorCsv(filaCsv, edicionResuelta.error);
@@ -398,6 +435,7 @@ export class AnadirCromoComponent implements OnInit {
 
       const equipoIds = [...new Set(
         this.csvFilas
+          .filter(fila => !fila.permitirSinEquipo)
           .map(fila => fila.equipoId)
           .filter((id): id is number => id !== null)
       )];
@@ -406,14 +444,27 @@ export class AnadirCromoComponent implements OnInit {
         : [];
       const jugadoresPorEquipo = new Map<number, JugadorEquipo[]>();
       equipoIds.forEach((id, indice) => jugadoresPorEquipo.set(id, plantillas[indice] ?? []));
+      const jugadoresGlobales: JugadorEquipo[] = this.csvFilas.some(fila => fila.permitirSinEquipo)
+        ? (await firstValueFrom(this.jugadorService.getJugadores())).map(jugador => ({
+            id: jugador.id,
+            nombre: jugador.nombre,
+            nombreCompleto: jugador.nombreCompleto,
+            temporadas: jugador.equipos.map(equipo => ({
+              temporadaInicio: equipo.temporadaInicio,
+              temporadaFin: equipo.temporadaFin
+            }))
+          }))
+        : [];
 
       for (const fila of this.csvFilas) {
-        if (fila.jugadorId === null && fila.equipoId !== null && fila.nombreJugador) {
-          const candidatos = jugadoresPorEquipo.get(fila.equipoId) ?? [];
+        if (fila.jugadorId === null && (fila.equipoId !== null || fila.permitirSinEquipo) && fila.nombreJugador) {
+          const candidatos = fila.permitirSinEquipo
+            ? jugadoresGlobales
+            : jugadoresPorEquipo.get(fila.equipoId!) ?? [];
           const buscado = normalizarTexto(fila.nombreJugador);
-          const candidatosDeTemporada = candidatos.filter(jugador =>
-            this.jugadorCoincideTemporada(jugador, fila.temporada)
-          );
+          const candidatosDeTemporada = fila.permitirSinEquipo
+            ? candidatos
+            : candidatos.filter(jugador => this.jugadorCoincideTemporada(jugador, fila.temporada));
           const candidatosJugador = candidatosDeTemporada.filter(jugador =>
             buscado === 'escudo'
               ? this.esJugadorEscudo(jugador)
@@ -439,7 +490,12 @@ export class AnadirCromoComponent implements OnInit {
             ).values()].slice(0, 5);
 
             if (fila.jugadoresSugeridos.length === 0 && !fila.esEscudo) {
-              this.agregarErrorCsv(fila, 'No se encontró el jugador en el equipo y temporada indicados.');
+              if (fila.permitirSinEquipo) {
+                fila.jugadorPendienteCrear = true;
+              } else {
+                fila.jugadorNoEncontrado = true;
+                this.agregarErrorCsv(fila, 'No se encontró el jugador en el equipo y temporada indicados.');
+              }
             }
           }
         }
@@ -447,12 +503,12 @@ export class AnadirCromoComponent implements OnInit {
 
       const cantidadesPorNumero = new Map<string, number>();
       for (const fila of this.csvFilas) {
-        if (fila.equipoId === null || fila.tipoCromoId === null || fila.edicionId === null) continue;
+        if (fila.tipoCromoId === null || fila.edicionId === null) continue;
         const clave = this.claveCromoCsv(fila);
         cantidadesPorNumero.set(clave, (cantidadesPorNumero.get(clave) ?? 0) + 1);
       }
       for (const fila of this.csvFilas) {
-        if (fila.equipoId !== null && fila.tipoCromoId !== null && fila.edicionId !== null
+        if (fila.tipoCromoId !== null && fila.edicionId !== null
           && (cantidadesPorNumero.get(this.claveCromoCsv(fila)) ?? 0) > 1) {
           this.agregarErrorCsv(fila, `El número «${fila.numero}» está repetido para el mismo equipo, tipo y edición.`);
         }
@@ -482,21 +538,26 @@ export class AnadirCromoComponent implements OnInit {
       cromos: this.csvFilas.map(fila => ({
         filaCsv: fila.filaCsv,
         numero: fila.numero,
-        equipoId: fila.equipoId!,
+        equipoId: fila.equipoId,
         tipoCromoId: fila.tipoCromoId!,
         edicionId: fila.edicionId!,
-        jugadorId: fila.jugadorId!,
+        jugadorId: fila.jugadorId,
+        nombreJugador: fila.nombreJugador,
+        permitirSinEquipo: fila.permitirSinEquipo,
         esEscudo: fila.esEscudo,
         comentario: fila.comentario
       }))
     };
 
-    this.http.post<{ creados: number; escudosCreados: number }>(`${this.apiUrl}/Cromo/importar-lote`, payload).subscribe({
+    this.http.post<{ creados: number; escudosCreados: number; jugadoresCreados: number }>(`${this.apiUrl}/Cromo/importar-lote`, payload).subscribe({
       next: resultado => {
         this.importandoCsv = false;
         this.csvMensaje = `Se importaron ${resultado.creados} cromos correctamente.`
           + (resultado.escudosCreados
             ? ` Se crearon ${resultado.escudosCreados} jugador(es) especial(es) Escudo.`
+            : '')
+          + (resultado.jugadoresCreados
+            ? ` Se crearon ${resultado.jugadoresCreados} jugador(es) sin equipo asociado.`
             : '');
         this.csvFilas = [];
         this.csvArchivo = '';
@@ -520,7 +581,7 @@ export class AnadirCromoComponent implements OnInit {
   }
 
   descargarPlantillaCsv(): void {
-    const contenido = '\uFEFFnumero,nombreJugador,equipo,temporada,tipoCromo,edicion,comentario\r\n';
+    const contenido = '\uFEFFnumero,nombreJugador,equipo,temporada,tipoCromo,edicion,permitirSinEquipo,comentario\r\n';
     const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
     const enlace = document.createElement('a');
     enlace.href = url;
@@ -532,12 +593,21 @@ export class AnadirCromoComponent implements OnInit {
   private limpiarCsv(): void {
     this.csvArchivo = '';
     this.csvFilas = [];
+    this.csvPagina = 0;
     this.csvMensaje = '';
     this.csvError = '';
   }
 
   private buscarColumna(cabeceras: string[], opciones: string[]): number {
     return cabeceras.findIndex(cabecera => opciones.includes(cabecera));
+  }
+
+  private parsearBooleanCsv(valor: string): boolean | null {
+    if (!valor) return false;
+    const normalizado = normalizarTexto(valor);
+    if (['true', '1', 'si', 'yes'].includes(normalizado)) return true;
+    if (['false', '0', 'no'].includes(normalizado)) return false;
+    return null;
   }
 
   private resolverElementoCsv<T extends { id: number }>(
@@ -640,6 +710,15 @@ export class AnadirCromoComponent implements OnInit {
     fila.jugadorId = jugador.id;
     fila.jugadorNombreValidado = this.nombreVisibleJugador(jugador);
     fila.jugadoresSugeridos = [];
+    fila.jugadorPendienteCrear = false;
+    this.cdr.detectChanges();
+  }
+
+  crearJugadorCsv(fila: FilaCromoCsv): void {
+    fila.jugadoresSugeridos = [];
+    fila.jugadorPendienteCrear = true;
+    fila.jugadorId = null;
+    fila.jugadorNombreValidado = null;
     this.cdr.detectChanges();
   }
 
