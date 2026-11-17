@@ -37,7 +37,7 @@ export interface AlbumCromo {
   numero: string;
   comentario?: string | null;
   jugador: { id: number; nombre: string };
-  equipo: { id: number; nombre: string };
+  equipo: { id: number; nombre: string } | null;
   edicion: { id: number; nombre: string };
   publicacion?: { id: number; temporada: string } | null;
   temporada?: string;
@@ -46,7 +46,7 @@ export interface AlbumCromo {
 }
 
 export interface AlbumEquipoConCromos {
-  id: number;
+  id: number | null;
   nombre: string;
   orden: number;
   cromos: AlbumCromo[];

@@ -175,10 +175,19 @@ mat-card-content {
   vertical-align: top;
 }
 
+.csv-acciones {
+  white-space: nowrap;
+}
+
 .csv-tabla th {
   color: var(--app-primary-dark, #174f64);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.csv-paginador {
+  margin-top: 4px;
+  background: transparent;
 }
 
 .csv-confirmar {

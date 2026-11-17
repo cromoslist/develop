@@ -6,7 +6,7 @@ public class CreateCromoDto
 
     public long JugadorId { get; set; }
 
-    public long EquipoId { get; set; }
+    public long? EquipoId { get; set; }
 
     public long EdicionId { get; set; }
 

@@ -1,6 +1,6 @@
 import { Component, Inject, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -75,12 +75,19 @@ export class CromoEditarComponent implements OnInit {
 
     this.cromoForm = this.fb.group({
       numero: [cromo.numero, Validators.required],
-      equipo: [{ ...cromo.equipo }, Validators.required],
+      equipo: [cromo.equipo ? { ...cromo.equipo } : null, this.seleccionOpcionalValida],
       jugador: [{ value: { ...cromo.jugador }, disabled: false }, Validators.required],
       edicionId: [cromo.edicion.id, Validators.required],
       tipoCromo: [{ ...cromo.tipoCromo }, Validators.required],
       albumId: [this.data.albumId, Validators.required]
     });
+  }
+
+  private seleccionOpcionalValida(control: AbstractControl): ValidationErrors | null {
+    const valor = control.value;
+    return valor === null || valor === undefined || valor === '' || typeof valor === 'object'
+      ? null
+      : { seleccionIncompleta: true };
   }
 
   private cargarDatosMaestros(): void {
@@ -132,7 +139,9 @@ export class CromoEditarComponent implements OnInit {
       }
     });
 
-    this.cargarJugadoresDelEquipo(this.data.cromo.equipo.id);
+    if (this.data.cromo.equipo) {
+      this.cargarJugadoresDelEquipo(this.data.cromo.equipo.id);
+    }
   }
 
   filtrarEquipos(value: any): any[] {
@@ -231,7 +240,7 @@ export class CromoEditarComponent implements OnInit {
       numero: this.cromoForm.get('numero')?.value,
       edicionId: this.cromoForm.get('edicionId')?.value,
       albumId: this.cromoForm.get('albumId')?.value,
-      equipoId: this.cromoForm.get('equipo')?.value?.id,
+      equipoId: this.cromoForm.get('equipo')?.value?.id ?? null,
       jugadorId: this.cromoForm.get('jugador')?.value?.id,
       tipoCromoId: this.cromoForm.get('tipoCromo')?.value?.id,
       publicacionId: null,

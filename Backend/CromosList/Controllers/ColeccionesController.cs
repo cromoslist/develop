@@ -50,10 +50,10 @@ public class ColeccionesController : ControllerBase
             .ToListAsync();
 
         var equipos = cromos
-            .GroupBy(c => new { c.Equipo.Id, c.Equipo.Nombre })
+            .GroupBy(c => new { c.EquipoId, Nombre = c.Equipo == null ? "Sin equipo" : c.Equipo.Nombre })
             .Select(g => new
             {
-                g.Key.Id,
+                Id = g.Key.EquipoId,
                 g.Key.Nombre,
                 Cromos = g.Select(c => new
                 {

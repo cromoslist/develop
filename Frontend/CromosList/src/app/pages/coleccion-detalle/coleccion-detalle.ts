@@ -151,8 +151,8 @@ export class ColeccionDetalleComponent implements OnInit {
     return this.album.equipos.reduce((suma, e) => suma + e.cromos.length, 0);
   }
 
-  trackEquipo(_: number, equipo: any): number {
-    return equipo.id;
+  trackEquipo(_: number, equipo: any): number | string {
+    return equipo.id ?? 'sin-equipo';
   }
 
   trackTipo(_: number, grupo: EspecialGrupo): string {

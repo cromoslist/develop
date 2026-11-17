@@ -155,7 +155,7 @@ namespace CromosList.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("edicion_id");
 
-                    b.Property<long>("EquipoId")
+                    b.Property<long?>("EquipoId")
                         .HasColumnType("bigint")
                         .HasColumnName("equipo_id");
 
@@ -563,9 +563,7 @@ namespace CromosList.Migrations
 
                     b.HasOne("CromosList.Models.Equipo", "Equipo")
                         .WithMany("Cromos")
-                        .HasForeignKey("EquipoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("EquipoId");
 
                     b.HasOne("CromosList.Models.Jugador", "Jugador")
                         .WithMany("Cromos")

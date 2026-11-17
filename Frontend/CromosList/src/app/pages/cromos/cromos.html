@@ -238,8 +238,8 @@
           <div class="csv-import-header">
             <div>
               <h3>Importar cromos desde CSV</h3>
-              <p>Columnas obligatorias: <code>numero</code>, <code>nombreJugador</code>, <code>equipo</code>, <code>temporada</code>, <code>tipoCromo</code> y <code>edicion</code>. El comentario es opcional.</p>
-              <p>La temporada identifica la etapa del jugador en ese equipo (por ejemplo, <code>2023/2024</code>); equipo, tipo y edición pueden variar por fila.</p>
+              <p>Columnas obligatorias: <code>numero</code>, <code>nombreJugador</code>, <code>equipo</code>, <code>temporada</code>, <code>tipoCromo</code> y <code>edicion</code>. <code>permitirSinEquipo</code> es un booleano opcional (true/false) y el comentario es opcional.</p>
+              <p>Con <code>permitirSinEquipo=true</code>, el equipo y la temporada pueden estar vacíos; si el jugador no existe, se creará sin equipos asociados.</p>
             </div>
             <button mat-button type="button" (click)="descargarPlantillaCsv()">
               <mat-icon>download</mat-icon>
@@ -279,10 +279,7 @@
 
           <ng-container *ngIf="csvFilas.length">
             <p class="csv-resumen">
-              {{ csvFilas.length }} fila(s). Revisa la vista previa antes de importar.
-              <span *ngIf="csvFilas.length > csvFilasVisibles.length">
-                Se muestran las primeras {{ csvFilasVisibles.length }}.
-              </span>
+              {{ csvFilas.length }} fila(s). Revisa todos los registros con la paginación antes de importar.
             </p>
 
             <div class="csv-tabla-contenedor">
@@ -296,8 +293,10 @@
                     <th>Temporada</th>
                     <th>Tipo</th>
                     <th>Edición</th>
+                    <th>Permitir sin equipo</th>
                     <th>Comentario</th>
                     <th>Validación</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -315,6 +314,13 @@
                           (click)="confirmarJugadorCsv(fila, jugador)">
                           {{ nombreVisibleJugador(jugador) }}
                         </button>
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          *ngIf="fila.permitirSinEquipo"
+                          (click)="crearJugadorCsv(fila)">
+                          Crear jugador nuevo sin equipo
+                        </button>
                       </div>
                       <div class="csv-jugador-validado" *ngIf="fila.jugadorNombreValidado">
                         <mat-icon>check_circle</mat-icon>
@@ -325,14 +331,38 @@
                     <td>{{ fila.temporada || '—' }}</td>
                     <td>{{ fila.tipoCromo || '—' }}</td>
                     <td>{{ fila.edicion || '—' }}</td>
+                    <td>{{ fila.permitirSinEquipo ? 'Sí' : 'No' }}</td>
                     <td>{{ fila.comentario || '—' }}</td>
                     <td [class.csv-fila-error]="!!fila.error">
-                      {{ fila.error || (fila.jugadoresSugeridos.length ? 'Pendiente de confirmar jugador' : fila.esEscudo && fila.jugadorId === null ? 'Se creará Escudo' : 'Correcta') }}
+                      {{ fila.error || (fila.jugadoresSugeridos.length ? 'Pendiente de confirmar jugador' : fila.jugadorPendienteCrear ? 'Se creará el jugador sin equipo' : fila.esEscudo && fila.jugadorId === null ? 'Se creará Escudo' : 'Correcta') }}
+                    </td>
+                    <td class="csv-acciones">
+                      <button
+                        *ngIf="fila.jugadorNoEncontrado"
+                        mat-stroked-button
+                        color="warn"
+                        type="button"
+                        (click)="eliminarFilaCsv(fila)"
+                        [attr.aria-label]="'Eliminar la fila ' + fila.filaCsv">
+                        <mat-icon>delete</mat-icon>
+                        Eliminar fila
+                      </button>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <mat-paginator
+              class="csv-paginador"
+              [length]="csvFilas.length"
+              [pageIndex]="csvPagina"
+              [pageSize]="csvTamanoPagina"
+              [pageSizeOptions]="[10, 20, 50, 100]"
+              [showFirstLastButtons]="true"
+              aria-label="Paginación de la vista previa del CSV"
+              (page)="cambiarPaginaCsv($event)">
+            </mat-paginator>
 
             <div class="csv-confirmar">
               <button

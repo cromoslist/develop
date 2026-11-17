@@ -116,25 +116,34 @@ public class AlbumesController : ControllerBase
                 : string.Empty;
         }
 
-        var cromosPorEquipo = cromos
-            .GroupBy(c => c.EquipoId)
+        var cromosProyectados = cromos
+            .Select(c => new
+            {
+                c.Id,
+                c.Numero,
+                c.Comentario,
+                Jugador = new { c.Jugador.Id, c.Jugador.Nombre },
+                Equipo = c.Equipo == null ? null : new { c.Equipo.Id, c.Equipo.Nombre },
+                Edicion = new { c.Edicion.Id, c.Edicion.Nombre },
+                Temporada = TemporadaDe(c),
+                TipoCromo = new { c.TipoCromo.Id, c.TipoCromo.Nombre },
+                Coleccion = c.Coleccion == null
+                    ? null
+                    : new { c.Coleccion.Id, c.Coleccion.Nombre }
+            })
+            .ToList();
+        var cromosPorEquipo = cromosProyectados
+            .Where(c => c.Equipo != null)
+            .GroupBy(c => c.Equipo!.Id)
             .ToDictionary(g => g.Key, g => g
-                .Select(c => new
-                {
-                    c.Id,
-                    c.Numero,
-                    c.Comentario,
-                    Jugador = new { c.Jugador.Id, c.Jugador.Nombre },
-                    Equipo = new { c.Equipo.Id, c.Equipo.Nombre },
-                    Edicion = new { c.Edicion.Id, c.Edicion.Nombre },
-                    Temporada = TemporadaDe(c),
-                    TipoCromo = new { c.TipoCromo.Id, c.TipoCromo.Nombre },
-                    Coleccion = c.Coleccion == null
-                        ? null
-                        : new { c.Coleccion.Id, c.Coleccion.Nombre }
-                })
                 .OrderBy(c => c.Numero)
+                .Select(c => (object)c)
                 .ToList());
+        var cromosSinEquipo = cromosProyectados
+            .Where(c => c.Equipo == null)
+            .OrderBy(c => c.Numero)
+            .Select(c => (object)c)
+            .ToList();
 
         var equipos = await _context.AlbumEquipos
             .AsNoTracking()
@@ -162,15 +171,26 @@ public class AlbumesController : ControllerBase
             })
             .ToListAsync();
 
-        var resultado = equipos.Select(e => new
+        var resultado = equipos.Select(e => (object)new
         {
-            e.Id,
+            Id = (long?)e.Id,
             e.Nombre,
             e.Orden,
             Cromos = cromosPorEquipo.TryGetValue(e.Id, out var lista)
-                ? lista.Cast<object>()
+                ? (IEnumerable<object>)lista
                 : Enumerable.Empty<object>()
-        });
+        }).ToList();
+
+        if (cromosSinEquipo.Count > 0)
+        {
+            resultado.Add(new
+            {
+                Id = (long?)null,
+                Nombre = "Sin equipo",
+                Orden = int.MaxValue,
+                Cromos = (IEnumerable<object>)cromosSinEquipo
+            });
+        }
 
         return Ok(new
         {
