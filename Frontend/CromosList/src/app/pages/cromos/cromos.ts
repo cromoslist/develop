@@ -327,7 +327,7 @@ export class AnadirCromoComponent implements OnInit {
     this.csvArchivo = archivo.name;
 
     try {
-      const texto = await archivo.text();
+      const texto = await this.decodificarCsv(archivo);
       const registros = this.parsearCsv(texto);
       if (registros.length < 2) {
         throw new Error('El CSV debe tener una cabecera y al menos una fila de datos.');
@@ -608,6 +608,23 @@ export class AnadirCromoComponent implements OnInit {
     if (['true', '1', 'si', 'yes'].includes(normalizado)) return true;
     if (['false', '0', 'no'].includes(normalizado)) return false;
     return null;
+  }
+
+  private async decodificarCsv(archivo: File): Promise<string> {
+    const bytes = new Uint8Array(await archivo.arrayBuffer());
+
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+      return new TextDecoder('utf-16le').decode(bytes);
+    }
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+      return new TextDecoder('utf-16be').decode(bytes);
+    }
+
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+      return new TextDecoder('windows-1252').decode(bytes);
+    }
   }
 
   private resolverElementoCsv<T extends { id: number }>(
