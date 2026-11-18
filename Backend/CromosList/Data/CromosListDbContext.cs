@@ -85,6 +85,13 @@ public class CromosListDbContext : DbContext
             entity.Property(x => x.NombreCompleto)
                 .HasColumnName("nombre_completo");
 
+            entity.Property(x => x.TransfermarktId)
+                .HasColumnName("transfermarkt_id")
+                .HasMaxLength(32);
+
+            entity.HasIndex(x => x.TransfermarktId)
+                .IsUnique();
+
             entity.Property(x => x.Internacional)
                 .HasColumnName("internacional");
 

@@ -5,6 +5,7 @@ public class Jugador
     public long Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string NombreCompleto { get; set; } = string.Empty;
+    public string? TransfermarktId { get; set; }
     public bool Internacional { get; set; }
     public ICollection<Cromo> Cromos { get; set; } = new List<Cromo>();
 

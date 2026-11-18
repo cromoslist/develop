@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -120,12 +121,15 @@ public class TransfermarktController : ControllerBase
             .Include(j => j.Equipos)
             .Include(j => j.Paises)
             .ToListAsync(cancellationToken);
-        var porNombre = new Dictionary<string, Jugador>(StringComparer.OrdinalIgnoreCase);
+        var porNombre = new Dictionary<string, List<Jugador>>(StringComparer.Ordinal);
         foreach (var existente in jugadores)
         {
             AgregarAlias(porNombre, existente.Nombre, existente);
             AgregarAlias(porNombre, existente.NombreCompleto, existente);
         }
+        var porTransfermarktId = jugadores
+            .Where(j => !string.IsNullOrWhiteSpace(j.TransfermarktId))
+            .ToDictionary(j => j.TransfermarktId!, StringComparer.Ordinal);
 
         var paises = await _context.Paises.ToListAsync(cancellationToken);
         var paisPorNombre = new Dictionary<string, Pais>(StringComparer.OrdinalIgnoreCase);
@@ -144,21 +148,61 @@ public class TransfermarktController : ControllerBase
                 continue;
             }
 
-            if (!porNombre.TryGetValue(nombre, out var jugador))
-            {
-                jugador = new Jugador
-                {
-                    Nombre = nombre,
-                    NombreCompleto = fila.Player?.FullName?.Trim() ?? string.Empty,
-                    Internacional = false
-                };
+            var transfermarktId = ObtenerIdTransfermarkt(fila.Player?.Id);
+            Jugador? jugador = null;
 
-                _context.Jugadores.Add(jugador);
-                jugadores.Add(jugador);
-                AgregarAlias(porNombre, jugador.Nombre, jugador);
-                AgregarAlias(porNombre, jugador.NombreCompleto, jugador);
-                creados++;
+            if (transfermarktId is not null)
+                porTransfermarktId.TryGetValue(transfermarktId, out jugador);
+
+            if (jugador is null)
+            {
+                var coincidencias = new HashSet<Jugador>();
+                foreach (var alias in new[] { nombre, fila.Player?.FullName })
+                {
+                    var clave = NormalizarNombre(alias);
+                    if (clave.Length == 0 || !porNombre.TryGetValue(clave, out var candidatos))
+                        continue;
+
+                    foreach (var candidato in candidatos)
+                    {
+                        if (transfermarktId is null
+                            || string.IsNullOrWhiteSpace(candidato.TransfermarktId)
+                            || string.Equals(candidato.TransfermarktId, transfermarktId, StringComparison.Ordinal))
+                            coincidencias.Add(candidato);
+                    }
+                }
+
+                // Solo reutiliza por nombre cuando hay una única coincidencia
+                // compatible. Si hay homónimos, crea un registro separado.
+                if (coincidencias.Count == 1)
+                {
+                    jugador = coincidencias.Single();
+                }
+                else
+                {
+                    jugador = new Jugador
+                    {
+                        Nombre = nombre,
+                        NombreCompleto = fila.Player?.FullName?.Trim() ?? string.Empty,
+                        TransfermarktId = transfermarktId,
+                        Internacional = false
+                    };
+
+                    _context.Jugadores.Add(jugador);
+                    jugadores.Add(jugador);
+                    creados++;
+                }
             }
+
+            if (transfermarktId is not null)
+            {
+                jugador.TransfermarktId ??= transfermarktId;
+                porTransfermarktId.TryAdd(transfermarktId, jugador);
+            }
+            AgregarAlias(porNombre, jugador.Nombre, jugador);
+            AgregarAlias(porNombre, jugador.NombreCompleto, jugador);
+            AgregarAlias(porNombre, nombre, jugador);
+            AgregarAlias(porNombre, fila.Player?.FullName, jugador);
 
             foreach (var nacionalidad in fila.Nationalities ?? [])
             {
@@ -218,10 +262,41 @@ public class TransfermarktController : ControllerBase
         return request;
     }
 
-    private static void AgregarAlias(IDictionary<string, Jugador> jugadores, string? alias, Jugador jugador)
+    private static void AgregarAlias(IDictionary<string, List<Jugador>> jugadores, string? alias, Jugador jugador)
     {
-        if (!string.IsNullOrWhiteSpace(alias))
-            jugadores.TryAdd(alias.Trim(), jugador);
+        var clave = NormalizarNombre(alias);
+        if (clave.Length == 0)
+            return;
+
+        if (!jugadores.TryGetValue(clave, out var coincidencias))
+        {
+            coincidencias = [];
+            jugadores[clave] = coincidencias;
+        }
+
+        if (!coincidencias.Contains(jugador))
+            coincidencias.Add(jugador);
+    }
+
+    private static string NormalizarNombre(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+            return string.Empty;
+
+        var sinTildes = Regex.Replace(
+            nombre.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD),
+            @"\p{Mn}",
+            string.Empty);
+        return Regex.Replace(sinTildes, @"\s+", " ").Normalize(NormalizationForm.FormC);
+    }
+
+    private static string? ObtenerIdTransfermarkt(JsonElement? id)
+    {
+        if (id is null || id.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+
+        var valor = id.Value.ToString().Trim();
+        return string.IsNullOrWhiteSpace(valor) ? null : valor;
     }
 
     private static string ObtenerTemporada(TransfermarktSeasonDto? temporada, string? solicitada)
@@ -311,6 +386,9 @@ internal sealed class TransfermarktSquadRowDto
 
 internal sealed class TransfermarktPlayerDto
 {
+    [JsonPropertyName("id")]
+    public JsonElement? Id { get; set; }
+
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 

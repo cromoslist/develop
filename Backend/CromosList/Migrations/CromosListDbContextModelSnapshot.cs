@@ -275,7 +275,15 @@ namespace CromosList.Migrations
                         .HasColumnType("text")
                         .HasColumnName("nombre_completo");
 
+                    b.Property<string>("TransfermarktId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("transfermarkt_id");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TransfermarktId")
+                        .IsUnique();
 
                     b.ToTable("jugador", (string)null);
                 });
