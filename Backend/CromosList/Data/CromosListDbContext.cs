@@ -67,6 +67,13 @@ public class CromosListDbContext : DbContext
 
             entity.Property(x => x.Nombre)
                 .HasColumnName("nombre");
+
+            entity.Property(x => x.TransfermarktId)
+                .HasColumnName("transfermarkt_id")
+                .HasMaxLength(32);
+
+            entity.HasIndex(x => x.TransfermarktId)
+                .IsUnique();
         });
 
         // JUGADOR

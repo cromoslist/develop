@@ -46,10 +46,6 @@ public class TransfermarktController : ControllerBase
         if (dto.EquipoId <= 0)
             return BadRequest("Selecciona un equipo de CromosList.");
 
-        var club = dto.Club?.Trim();
-        if (string.IsNullOrWhiteSpace(club) || club.Length > 500)
-            return BadRequest("Indica el ID o el enlace del club en Transfermarkt.");
-
         if (!string.IsNullOrWhiteSpace(dto.Temporada) && dto.Temporada.Trim().Length > 20)
             return BadRequest("La temporada no puede superar los 20 caracteres.");
 
@@ -59,6 +55,12 @@ public class TransfermarktController : ControllerBase
 
         if (equipo is null)
             return NotFound("El equipo seleccionado no existe.");
+
+        var club = !string.IsNullOrWhiteSpace(equipo.TransfermarktId)
+            ? equipo.TransfermarktId.Trim()
+            : dto.Club?.Trim();
+        if (string.IsNullOrWhiteSpace(club) || club.Length > 500)
+            return BadRequest("El equipo no tiene un ID de Transfermarkt guardado. Indica el ID o el enlace del club.");
 
         var baseUrl = _configuration["TransfermarktScraper:BaseUrl"]?.Trim().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl) || !Uri.TryCreate(baseUrl, UriKind.Absolute, out var scraperUri))

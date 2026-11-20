@@ -119,6 +119,10 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
     this.subBusqueda?.unsubscribe();
   }
 
+  get equipoImportacionSeleccionado(): Equipo | undefined {
+    return this.equipos.find(equipo => equipo.id === this.equipoImportacionId);
+  }
+
   limpiar(): void {
     this.busqueda.setValue('');
     this.resultados = [];
@@ -194,9 +198,10 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
   importarPlantilla(): void {
     const equipoId = this.equipoImportacionId;
     const club = this.clubTransfermarkt.trim();
+    const equipo = this.equipoImportacionSeleccionado;
 
-    if (!equipoId || !club || this.importandoPlantilla) {
-      this.errorImportacion = 'Selecciona un equipo e indica el ID o enlace del club.';
+    if (!equipoId || (!equipo?.transfermarktId && !club) || this.importandoPlantilla) {
+      this.errorImportacion = 'Selecciona un equipo e indica el ID o enlace del club si el equipo no lo tiene guardado.';
       this.mensajeImportacion = '';
       return;
     }
@@ -207,7 +212,7 @@ export class AdminPanelComponent implements OnInit, OnDestroy {
 
     this.adminService.importarPlantillaTransfermarkt({
       equipoId,
-      club,
+      ...(equipo?.transfermarktId ? {} : { club }),
       temporada: this.temporadaTransfermarkt.trim() || undefined
     }).subscribe({
       next: resultado => {

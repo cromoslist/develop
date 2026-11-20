@@ -40,6 +40,14 @@ public class EquiposController : ControllerBase
             return BadRequest("El nombre del equipo es obligatorio.");
         }
 
+        var transfermarktId = NormalizarTransfermarktId(equipo.TransfermarktId);
+        if (!TransfermarktIdValido(transfermarktId))
+            return BadRequest("El ID de Transfermarkt debe contener solo números y tener como máximo 32 caracteres.");
+
+        if (transfermarktId is not null && await _context.Equipos.AnyAsync(e => e.TransfermarktId == transfermarktId))
+            return BadRequest("Ese ID de Transfermarkt ya está asociado a otro equipo.");
+
+        equipo.TransfermarktId = transfermarktId;
         _context.Equipos.Add(equipo);
         await _context.SaveChangesAsync();
 
@@ -59,7 +67,15 @@ public class EquiposController : ControllerBase
             return BadRequest("El nombre del equipo es obligatorio.");
         }
 
+        var transfermarktId = NormalizarTransfermarktId(equipo.TransfermarktId);
+        if (!TransfermarktIdValido(transfermarktId))
+            return BadRequest("El ID de Transfermarkt debe contener solo números y tener como máximo 32 caracteres.");
+
+        if (transfermarktId is not null && await _context.Equipos.AnyAsync(e => e.Id != id && e.TransfermarktId == transfermarktId))
+            return BadRequest("Ese ID de Transfermarkt ya está asociado a otro equipo.");
+
         existente.Nombre = equipo.Nombre;
+        existente.TransfermarktId = transfermarktId;
         await _context.SaveChangesAsync();
 
         return Ok(existente);
@@ -133,4 +149,14 @@ public class EquiposController : ControllerBase
 
         return long.TryParse(sub!, out var id) ? id : 0;
     }
+
+    private static string? NormalizarTransfermarktId(string? transfermarktId)
+    {
+        var normalizado = transfermarktId?.Trim();
+        return string.IsNullOrEmpty(normalizado) ? null : normalizado;
+    }
+
+    private static bool TransfermarktIdValido(string? transfermarktId) =>
+        transfermarktId is null ||
+        (transfermarktId.Length <= 32 && transfermarktId.All(char.IsDigit));
 }

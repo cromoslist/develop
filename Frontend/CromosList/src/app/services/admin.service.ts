@@ -113,7 +113,7 @@ export class AdminService {
 
   importarPlantillaTransfermarkt(datos: {
     equipoId: number;
-    club: string;
+    club?: string;
     temporada?: string;
   }): Observable<ResultadoImportacionPlantilla> {
     return this.http.post<ResultadoImportacionPlantilla>(

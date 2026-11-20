@@ -247,7 +247,15 @@ namespace CromosList.Migrations
                         .HasColumnType("text")
                         .HasColumnName("nombre");
 
+                    b.Property<string>("TransfermarktId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("transfermarkt_id");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TransfermarktId")
+                        .IsUnique();
 
                     b.ToTable("equipo", (string)null);
                 });

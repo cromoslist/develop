@@ -11,7 +11,7 @@
 
         <mat-card-title>{{ esModoEdicion ? 'Editar equipo' : 'Añadir nuevo equipo' }}</mat-card-title>
         <mat-card-subtitle>
-          {{ esModoEdicion ? 'Modifica el nombre del equipo' : 'Completa los datos del equipo que quieres añadir' }}
+          {{ esModoEdicion ? 'Modifica los datos del equipo' : 'Completa los datos del equipo que quieres añadir' }}
         </mat-card-subtitle>
       </mat-card-header>
 
@@ -36,6 +36,19 @@
 
             <mat-error *ngIf="equipoForm.get('nombre')?.hasError('maxlength')">
               El nombre no puede superar los 100 caracteres
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>ID de Transfermarkt</mat-label>
+            <input matInput type="text" inputmode="numeric" formControlName="transfermarktId" placeholder="Opcional">
+            <mat-icon matSuffix>link</mat-icon>
+            <mat-hint>El número de la página del equipo en Transfermarkt</mat-hint>
+            <mat-error *ngIf="equipoForm.get('transfermarktId')?.hasError('pattern')">
+              El ID debe contener solo números
+            </mat-error>
+            <mat-error *ngIf="equipoForm.get('transfermarktId')?.hasError('maxlength')">
+              El ID no puede superar los 32 caracteres
             </mat-error>
           </mat-form-field>
 
@@ -94,6 +107,7 @@
           <mat-list-item *ngFor="let equipo of equipos">
             <mat-icon matListItemIcon>groups</mat-icon>
             <span matListItemTitle>{{ equipo.nombre }}</span>
+            <span matListItemLine *ngIf="equipo.transfermarktId">Transfermarkt: {{ equipo.transfermarktId }}</span>
 
             <a
               mat-icon-button

@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 export interface Equipo {
   id: number;
   nombre: string;
+  transfermarktId?: string | null;
 }
 
 @Injectable({
@@ -20,11 +21,11 @@ export class EquipoService {
     return this.http.get<Equipo[]>(this.apiUrl);
   }
 
-  crearEquipo(equipo: { nombre: string }): Observable<Equipo> {
+  crearEquipo(equipo: { nombre: string; transfermarktId?: string | null }): Observable<Equipo> {
     return this.http.post<Equipo>(this.apiUrl, equipo);
   }
 
-  editarEquipo(id: number, equipo: { nombre: string }): Observable<Equipo> {
+  editarEquipo(id: number, equipo: { nombre: string; transfermarktId?: string | null }): Observable<Equipo> {
     return this.http.put<Equipo>(`${this.apiUrl}/${id}`, equipo);
   }
 

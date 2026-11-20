@@ -48,7 +48,8 @@ export class EquiposComponent implements OnInit {
           Validators.required,
           Validators.maxLength(100)
         ]
-      ]
+      ],
+      transfermarktId: ['', [Validators.maxLength(32), Validators.pattern(/^\d*$/)]]
     });
   }
 
@@ -69,7 +70,7 @@ export class EquiposComponent implements OnInit {
 
   editar(equipo: Equipo): void {
     this.editandoId = equipo.id;
-    this.equipoForm.patchValue({ nombre: equipo.nombre });
+    this.equipoForm.patchValue({ nombre: equipo.nombre, transfermarktId: equipo.transfermarktId ?? '' });
     this.mensaje = '';
     this.error = '';
   }
@@ -84,10 +85,11 @@ export class EquiposComponent implements OnInit {
     this.mensaje = '';
     this.error = '';
 
-    const nombre = this.equipoForm.get('nombre')?.value;
+    const { nombre, transfermarktId } = this.equipoForm.getRawValue();
+    const datosEquipo = { nombre, transfermarktId: transfermarktId?.trim() || null };
 
     if (this.esModoEdicion) {
-      this.equipoService.editarEquipo(this.editandoId!, { nombre }).subscribe({
+      this.equipoService.editarEquipo(this.editandoId!, datosEquipo).subscribe({
         next: (editado: Equipo) => {
           this.cargando = false;
           const idx = this.equipos.findIndex(e => e.id === this.editandoId);
@@ -103,7 +105,7 @@ export class EquiposComponent implements OnInit {
         }
       });
     } else {
-      this.equipoService.crearEquipo({ nombre }).subscribe({
+      this.equipoService.crearEquipo(datosEquipo).subscribe({
         next: (nuevo: Equipo) => {
           this.cargando = false;
           this.equipos.push(nuevo);

@@ -138,7 +138,7 @@
     <header class="gestion-header">
       <div>
         <h2>Importar plantilla de Transfermarkt</h2>
-        <p>Trae los jugadores de un club y vincúlalos a un equipo de CromosList.</p>
+        <p>Trae los jugadores del club asociado al equipo y los vincula en CromosList.</p>
       </div>
     </header>
 
@@ -154,11 +154,15 @@
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" *ngIf="!equipoImportacionSeleccionado?.transfermarktId">
             <mat-label>ID o enlace del club</mat-label>
             <input matInput [(ngModel)]="clubTransfermarkt"
               placeholder="Ej. 583 o enlace de Transfermarkt">
           </mat-form-field>
+
+          <p class="importacion-equipo-tm" *ngIf="equipoImportacionSeleccionado?.transfermarktId">
+            Se usará el ID de Transfermarkt guardado: {{ equipoImportacionSeleccionado?.transfermarktId }}
+          </p>
 
           <mat-form-field appearance="outline">
             <mat-label>Temporada (opcional)</mat-label>
